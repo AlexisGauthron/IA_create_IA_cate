@@ -1,0 +1,40 @@
+[project]
+name = "ia-create-ia-cate"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Tunderalpha ",email = "131662618+AlexisGauthron@users.noreply.github.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "transformers[sentencepiece] (==4.49.0)",
+    "accelerate (>=1.11.0,<2.0.0)",
+    "evaluate (>=0.4.6,<0.5.0)",
+    "autokeras (>=2.0.0,<3.0.0)",
+    "tensorflow (>=2.20.0,<3.0.0)",
+    "scikit-learn (>=1.4,<1.5)",
+    "flaml[automl] (>=2.3.6,<3.0.0)",
+    "pyarrow <21",
+    "datasets <4.3.0",
+    "tokenizers >=0.21,<0.22",
+    "autogluon ==1.4.0",
+    "bokeh ==2.4.3",
+    "numpy ==1.26.4",
+    "tpot (<1.1.0)",
+    "pycaret (==3.3.2)",
+    "sktime (==0.26.0)",
+    "h2o (>=3.46.0.8,<4.0.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
+[dependency-groups]
+dev = [
+    "ipykernel (>=7.1.0,<8.0.0)"
+]
