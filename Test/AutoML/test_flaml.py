@@ -34,3 +34,6 @@ if __name__ == "__main__":
     Flaml.flaml()
 
     Flaml.predict_test()
+
+    # Enregistrer le model
+    Flaml.enregistrement_model()

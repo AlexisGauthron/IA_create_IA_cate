@@ -16,7 +16,7 @@ class autoMl_flaml:
 
     def flaml(self,task : str = "classification",metric : str = "f1",time_budget : int = 300, taille_max_modele : int = None, espace_ram_libre : int = 0):
         
-        print("[INFO] Recherche Meilleur Modele\n")
+        print("[INFO] Recherche Meilleur Modele flaml\n")
 
         self.automl = AutoML()
         self.automl.fit(
@@ -38,7 +38,10 @@ class autoMl_flaml:
     def predict_test(self):
         print("[INFO] Test\n")
         pred = self.automl.predict(self.X_test)
-        print("F1:", f1_score(self.y_test, pred),"\n")
+        score = f1_score(self.y_test, pred)
+        print("F1:", score,"\n")
+
+        return score
 
 
     def enregistrement_model(self):

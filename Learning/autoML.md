@@ -107,6 +107,8 @@ TabularPredictor(
 
     keep_only_best=False,       # EXEMPLES : False | True (supprime les modèles non meilleurs pour gagner de l’espace)
     save_space=False            # EXEMPLES : False | True (prune caches/fichiers pour réduire l’empreinte disque)
+
+    memory_limit=12             # EXEMPLES : ~12 Go comme limite « souple »
 )
 
 ```
@@ -154,7 +156,9 @@ TPOTClassifier(
 
     n_jobs=-1                      # EXEMPLES : -1 (tous les cœurs) | 1 | 4 | 8
                                    #  - Plus de jobs = plus rapide mais RAM ↑.
-)
+                                   
+    max_time_mins=10               # EXEMPLES : 10m 
+)   
 
 ```
 
@@ -229,3 +233,35 @@ H2OAutoML(
 
 
 **https://chatgpt.com/s/dr_690a19a8f98c8191b0af98a53aaf9fe8**
+
+<br>
+
+## Features engineering
+
+
+| Capacité de FE                                                                  | FLAML | AutoGluon Tabular | TPOT | H2O AutoML |
+| ------------------------------------------------------------------------------- | ----- | ----------------- | ---- | ---------- |
+| Encodage auto des variables catégorielles                                       | 🟨    | ✅                 | ❌    | ✅          |
+| Imputation auto des valeurs manquantes                                          | 🟨    | 🟨                | 🟨   | ✅          |
+| Détection/suppression auto des colonnes inutiles (constantes, doublons…)        | ❌     | ✅                 | 🟨   | ✅          |
+| Création/extraction auto de nouvelles features (interactions, datetime, texte…) | ❌     | 🟨                | 🟨   | ❌          |
+| Sélection automatique de variables / réduction de dimension                     | ❌     | 🟨                | ✅    | 🟨         |
+| Prise en charge du texte & des dates (en tabulaire)                             | ❌     | ✅                 | ❌    | 🟨         |
+| Gestion automatique du déséquilibre de classes                                  | 🟨    | 🟨                | ❌    | ✅          |
+| Intégration facile de FE externes (Featuretools, encoders, tsfresh, pipelines)  | 🟨    | 🟨                | 🟨   | ❌          |
+
+
+### Forces 
+
+
+***AutoGluon*** ≈ meilleur “out-of-the-box” pour texte/datetime et nettoyage basique.
+
+
+***H2O AutoML*** fort sur catégorielles, NA et déséquilibre.
+
+
+***TPOT*** bon pour sélection/transfos via pipelines sklearn, mais encodage & pré-traitements souvent manuels.
+
+
+***FLAML*** = léger en FE (mise sur les modèles), idéal si le pré-traitement est fait en amont.
+

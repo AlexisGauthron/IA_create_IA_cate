@@ -1,0 +1,21 @@
+texte,label
+Je recommande l’application sans hésiter.,positif
+le service client a été expédié hier.,neutre
+"Parfait, le site web correspond à mes attentes.",positif
+"le site web ne fonctionne pas, bug constant.",negatif
+Je me suis abonné à l’hôtel.,neutre
+le produit a été expédié hier.,neutre
+Le prix de la formation a changé.,neutre
+"Excellente qualité, le produit vaut le prix.",positif
+"Mauvaise qualité, l’hôtel s’est cassé.",negatif
+Horrible expérience avec la formation.,negatif
+Horrible expérience avec le restaurant.,negatif
+Le prix de l’application a changé.,neutre
+"Mauvaise qualité, la commande s’est cassé.",negatif
+Coup de cœur pour le service client.,positif
+La couleur de le site web est différente de la photo.,neutre
+J’adore la commande !,positif
+Horrible expérience avec la mise à jour.,negatif
+"Très satisfait, le restaurant est impeccable.",positif
+Très déçu : la plateforme.,negatif
+"C’est nul, le site web pose problème.",negatif

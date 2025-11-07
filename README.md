@@ -55,3 +55,11 @@ https://lucid.app/lucidspark/9022eca2-d866-4ee7-839f-8f6d71c3aae0/edit?page=0_0&
 ## Environnement
 
 ### ***Poetry***
+
+
+
+### App
+
+```bash
+streamlit run c:/Users/User/AlexisGauthron/Projet/IA_create_IA_cate/src/front/interface_streamlit.py
+```

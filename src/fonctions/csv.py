@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Union
 import pandas as pd
 import csv
 
@@ -57,3 +56,6 @@ def to_csv(
         line_terminator="\n",
     )
     return p
+
+
+
