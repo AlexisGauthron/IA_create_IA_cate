@@ -135,3 +135,110 @@ def calibrate_threshold(
     thr = float(np.clip(thr, 0.2, 0.6))
     mar = float(np.clip(mar, 0.02, 0.15))
     return thr, mar
+
+
+if __name__ == "__main__":
+    # Petit banc d'essai autonome pour les fonctions du module.
+    # Exécuter:  python -m src.categorisation_echantillion.embeddings_proto
+    import os
+    import textwrap
+
+    # Option: changer de modèle via la variable d'env EMB_MODEL_NAME
+    model_name = os.getenv("EMB_MODEL_NAME", "intfloat/multilingual-e5-base")
+    print(f"[Init] Chargement du modèle: {model_name}")
+    load_model(model_name)
+
+    # --------- Jeu d'exemples (few-shots) par classe ----------
+    shots = {
+        "Support Technique": [
+            "L'application plante à l'ouverture après la mise à jour.",
+            "Je n'arrive plus à me connecter, le mot de passe est refusé.",
+            "Erreur 500 sur la page d'accueil du site.",
+            "Le serveur est indisponible depuis ce matin.",
+        ],
+        "Facturation": [
+            "Pouvez-vous renvoyer la facture de septembre avec la TVA corrigée ?",
+            "Merci d'émettre un avoir pour la facture #4589.",
+            "Quand le paiement par virement sera-t-il enregistré ?",
+            "Je souhaite un devis pour renouveler mon abonnement.",
+        ],
+        "Ressources humaines": [
+            "Je pose deux jours de congés la semaine prochaine.",
+            "Mon bulletin de paie comporte une erreur de prime.",
+            "Comment déclarer un arrêt maladie de trois jours ?",
+            "J'ai besoin d'un avenant à mon contrat de travail.",
+        ],
+        "Logistique": [
+            "Mon colis est bloqué au dépôt depuis trois jours.",
+            "Le transporteur indique une adresse de livraison incomplète.",
+            "Quel est le délai d'expédition pour cette commande ?",
+            "Le suivi indique que le paquet est perdu.",
+        ],
+        "Commercial": [
+            "Auriez-vous une remise pour 50 licences ?",
+            "Quand est prévue la prochaine démo produit ?",
+            "Pouvez-vous m'envoyer une proposition commerciale détaillée ?",
+            "Je souhaite discuter du prix et des options.",
+        ],
+    }
+
+    # --------- Définitions textuelles (améliorent les prototypes via alpha) ----------
+    label_defs = {
+        "Support Technique": "Problèmes techniques, bugs, erreurs, connexion, mises à jour, mot de passe, serveur, application.",
+        "Facturation": "Factures, paiements, TVA, avoirs, remboursements, devis, comptabilité.",
+        "Ressources humaines": "Congés, arrêts maladie, contrat de travail, bulletin de paie, recrutement.",
+        "Logistique": "Livraison, colis, transporteur, entrepôt, expédition, délai, adresse de livraison.",
+        "Commercial": "Prospection, devis, prix, remise, démonstration produit, négociation, vente.",
+    }
+
+    print("[Build] Construction des prototypes…")
+    protos = build_prototypes(shots, label_defs=label_defs, alpha=0.30)
+
+    print("[Calib] Calibration des hyperparamètres de rejet (threshold, margin)…")
+    thr, mar = calibrate_threshold(shots, label_defs=label_defs, alpha=0.30)
+    print(f"[Calib] threshold={thr:.3f} | margin={mar:.3f}")
+
+    # --------- Jeu de tests mono-label ----------
+    tests = [
+        ("Je n'arrive plus à me connecter après la mise à jour.", "Support Technique"),
+        ("Pouvez-vous me renvoyer la facture de septembre avec la TVA corrigée ?", "Facturation"),
+        ("Mon colis est bloqué au dépôt depuis trois jours.", "Logistique"),
+        ("Je souhaite poser deux jours de congés la semaine prochaine.", "Ressources humaines"),
+        ("Auriez-vous une remise pour 50 licences ?", "Commercial"),
+        ("Le serveur affiche une erreur 500 sur la page d'accueil.", "Support Technique"),
+        ("Merci d'annuler la facture #4589 et d'émettre un avoir.", "Facturation"),
+        ("Quand est prévue la prochaine démo produit ?", "Commercial"),
+        ("Mon bulletin de paie comporte une erreur de prime.", "Ressources humaines"),
+        ("Le transporteur m'indique une adresse incomplète pour la livraison.", "Logistique"),
+    ]
+
+    print("\n===== Test mono-label (classify_one) =====")
+    ok = 0
+    for text, expected in tests:
+        res = classify_one(text, protos, threshold=thr, margin=mar, allow_other=True)
+        pred, conf = res["label"], res["confidence"]
+        mark = "OK" if pred == expected else "!!"
+        top3 = sorted(res["sims"].items(), key=lambda kv: kv[1], reverse=True)[:3]
+        sims_str = ", ".join([f"{k}:{v:.2f}" for k, v in top3])
+        print(f"[{mark}] y={expected:<18} → ŷ={pred:<18} (conf={conf:.2f}) | top3= {sims_str}")
+        ok += int(pred == expected)
+    print(f"[Score] Exact-match accuracy: {ok}/{len(tests)} = {ok/len(tests):.1%}")
+
+    # --------- Démo multi-label ----------
+    multi_tests = [
+        "Le colis est perdu et j'ai besoin d'un avoir.",
+        "Après la démo, pouvez-vous m'envoyer le devis ?",
+        "Impossible de me connecter pour récupérer ma facture.",
+        "Je dois modifier l'adresse de livraison et connaître le prix.",
+    ]
+    ml_thr = max(0.40, thr)  # seuil raisonnable pour la multi-étiquette
+    print("\n===== Test multi-label (classify_one_multi) =====")
+    for text in multi_tests:
+        res = classify_one_multi(text, protos, per_label_threshold=ml_thr)
+        # Affiche les 3 meilleurs scores pour info
+        order = sorted(protos.keys(), key=lambda k: res["sims"][k], reverse=True)
+        top3 = [(k, res["sims"][k]) for k in order[:3]]
+        print("- " + textwrap.fill(text, width=88))
+        print(f"  → labels={res['labels']} | top3=" + ", ".join(f"{k}:{v:.2f}" for k, v in top3))
+
+    print("\n[Fin] Banc d'essai terminé.")
