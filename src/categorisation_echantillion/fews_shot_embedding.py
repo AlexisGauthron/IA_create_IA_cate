@@ -1,7 +1,16 @@
 # src/categorisation_echantillion/embeddings_proto.py
 import os
+
+import multiprocessing
+if multiprocessing.get_start_method(allow_none=True) != 'spawn':
+    multiprocessing.set_start_method('spawn', force=True)
+
+
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
+os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+
+
 
 from functools import lru_cache
 from typing import Dict, List, Tuple, Optional
@@ -12,17 +21,53 @@ _model = None
 _USE_E5_PREFIX = False
 _MODEL_NAME = None
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 
 def load_model(name: str = "intfloat/multilingual-e5-base"):
-    """Charge et mémorise le modèle d'embeddings."""
+    """Charge et mémorise le modèle d'embeddings de manière sécurisée."""
+
+    import torch
+    torch.set_num_threads(1)
+
     global _model, _USE_E5_PREFIX, _MODEL_NAME
-    if _MODEL_NAME == name and _model is not None:
+    try:
+        # Si le modèle demandé est déjà chargé, on le retourne directement
+        if _MODEL_NAME == name and _model is not None:
+            return _model
+
+        _MODEL_NAME = name
+        _USE_E5_PREFIX = name.startswith(("intfloat/", "e5", "gte"))
+
+        
+        import time
+        # Chargement du modèles
+        for _ in range(3):
+            try:
+                print("Chargement Model ...\n ")
+                _model = SentenceTransformer(name, device='cpu')
+                print("Réussie\n")
+                break
+            except RuntimeError as e:
+                print("Retrying model load due to RuntimeError:", e)
+                time.sleep(1)
+
+
+        # On vide le cache de _embed_one_cached si on change de modèle
+        _embed_one_cached.cache_clear()
         return _model
-    _MODEL_NAME = name
-    _USE_E5_PREFIX = name.startswith(("intfloat/", "e5", "gte"))
-    _model = SentenceTransformer(name)
-    _embed_one_cached.cache_clear()  # on vide le cache si on change de modèle
+
+    except RuntimeError as e:
+        print(f"Erreur lors du chargement du modèle (RuntimeError) : {e}")
+    except Exception as e:
+        print(f"Erreur inattendue lors du chargement du modèle : {e}")
+
+    # Si échec, on retourne None et on évite le crash
+    _model = None
     return _model
+
 
 
 def _prep_text(txt: str, is_query: bool) -> str:
@@ -67,6 +112,13 @@ def build_prototypes(
     return protos
 
 
+# Pour chaque prototype, on garde les labels dont la similarité dépasse le seuil.
+# Permet d’attribuer plusieurs labels à un texte.
+# Si aucun label ne passe le seuil → "Autre".
+
+
+
+
 def classify_one(
     text: str,
     protos: Dict[str, np.ndarray],
@@ -88,6 +140,15 @@ def classify_one(
     if allow_other and (top_sim < threshold or (top_sim - second_sim) < margin):
         return {"label": "Autre", "confidence": max(0.0, min(1.0, top_sim)), "sims": dict(zip(labels, sims.tolist()))}
     return {"label": top_lbl, "confidence": max(0.0, min(1.0, top_sim)), "sims": dict(zip(labels, sims.tolist()))}
+
+
+# Calcule l’embedding du texte.
+# Compare avec tous les prototypes via similarité cosinus (dot product, car vecteurs normalisés).
+# Règles de décision :
+# top_sim < threshold → label = "Autre".
+# (top_sim - second_sim) < margin → label = "Autre" (texte ambigu).
+# Retourne : {"label": ..., "confidence": score_top, "sims": {label: score}}.
+
 
 
 def classify_one_multi(
