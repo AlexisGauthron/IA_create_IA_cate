@@ -1,5 +1,11 @@
-# src/categorisation_echantillion/embeddings_proto.py
+import sys
 import os
+
+# Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
 
 import multiprocessing
 if multiprocessing.get_start_method(allow_none=True) != 'spawn':
@@ -12,106 +18,14 @@ os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
 
 
-from functools import lru_cache
 from typing import Dict, List, Tuple, Optional
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
-_model = None
-_USE_E5_PREFIX = False
-_MODEL_NAME = None
-
-import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-
-def load_model(name: str = "intfloat/multilingual-e5-base"):
-    """Charge et mémorise le modèle d'embeddings de manière sécurisée."""
-
-    import torch
-    torch.set_num_threads(1)
-
-    global _model, _USE_E5_PREFIX, _MODEL_NAME
-    try:
-        # Si le modèle demandé est déjà chargé, on le retourne directement
-        if _MODEL_NAME == name and _model is not None:
-            return _model
-
-        _MODEL_NAME = name
-        _USE_E5_PREFIX = name.startswith(("intfloat/", "e5", "gte"))
-
-        
-        import time
-        # Chargement du modèles
-        for _ in range(3):
-            try:
-                print("Chargement Model ...\n ")
-                _model = SentenceTransformer(name, device='cpu')
-                print("Réussie\n")
-                break
-            except RuntimeError as e:
-                print("Retrying model load due to RuntimeError:", e)
-                time.sleep(1)
-
-
-        # On vide le cache de _embed_one_cached si on change de modèle
-        _embed_one_cached.cache_clear()
-        return _model
-
-    except RuntimeError as e:
-        print(f"Erreur lors du chargement du modèle (RuntimeError) : {e}")
-    except Exception as e:
-        print(f"Erreur inattendue lors du chargement du modèle : {e}")
-
-    # Si échec, on retourne None et on évite le crash
-    _model = None
-    return _model
-
-
-
-def _prep_text(txt: str, is_query: bool) -> str:
-    if _USE_E5_PREFIX:
-        return f"{'query' if is_query else 'passage'}: {txt}"
-    return txt
-
-
-@lru_cache(maxsize=8192)
-def _embed_one_cached(txt: str, is_query: bool) -> np.ndarray:
-    if _model is None:
-        load_model()  # par défaut
-    v = _model.encode([_prep_text(txt, is_query)], normalize_embeddings=True)[0]
-    return v.astype(np.float32)
-
-
-def embed_texts(texts: List[str], is_query: bool) -> np.ndarray:
-    if _model is None:
-        load_model()
-    prepped = [_prep_text(t, is_query) for t in texts]
-    vs = _model.encode(prepped, normalize_embeddings=True)
-    return vs.astype(np.float32)
-
-
-def build_prototypes(
-    shots: Dict[str, List[str]],
-    label_defs: Optional[Dict[str, str]] = None,
-    alpha: float = 0.3,
-) -> Dict[str, np.ndarray]:
-    """Prototype = moyenne des embeddings d'exemples (+ mélange avec définition pondérée par alpha)."""
-    protos = {}
-    for lbl, examples in shots.items():
-        if not examples:
-            continue
-        ex_vecs = embed_texts(examples, is_query=False)
-        proto = ex_vecs.mean(axis=0)
-        if label_defs and label_defs.get(lbl):
-            d_vec = _embed_one_cached(label_defs[lbl], is_query=False)
-            proto = (1 - alpha) * proto + alpha * d_vec
-        proto = proto / (np.linalg.norm(proto) + 1e-8)
-        protos[lbl] = proto.astype(np.float32)
-    return protos
-
-
+import src.categorisation_echantillion.f_embedding as f_emb
+import src.categorisation_echantillion.calibrate_embedding as cal_emb
 # Pour chaque prototype, on garde les labels dont la similarité dépasse le seuil.
 # Permet d’attribuer plusieurs labels à un texte.
 # Si aucun label ne passe le seuil → "Autre".
@@ -127,7 +41,7 @@ def classify_one(
     allow_other: bool = True,
 ) -> Dict:
     """Mono-label : top-1 par cosinus, rejet 'Autre' si top<seuil ou marge top1-top2 faible."""
-    v = _embed_one_cached(text, is_query=True)
+    v = f_emb._embed_one_cached(text, is_query=True)
     if not protos:
         return {"label": "Autre", "confidence": 0.0, "sims": {}}
     labels = list(protos.keys())
@@ -142,14 +56,6 @@ def classify_one(
     return {"label": top_lbl, "confidence": max(0.0, min(1.0, top_sim)), "sims": dict(zip(labels, sims.tolist()))}
 
 
-# Calcule l’embedding du texte.
-# Compare avec tous les prototypes via similarité cosinus (dot product, car vecteurs normalisés).
-# Règles de décision :
-# top_sim < threshold → label = "Autre".
-# (top_sim - second_sim) < margin → label = "Autre" (texte ambigu).
-# Retourne : {"label": ..., "confidence": score_top, "sims": {label: score}}.
-
-
 
 def classify_one_multi(
     text: str,
@@ -157,45 +63,22 @@ def classify_one_multi(
     per_label_threshold: float = 0.4
 ) -> Dict:
     """Multi-label : conserve toutes les classes dont la similarité dépasse un seuil."""
-    v = _embed_one_cached(text, is_query=True)
+    v = f_emb._embed_one_cached(text, is_query=True)
     sims = {lbl: float(vec @ v) for lbl, vec in protos.items()}
     kept = [lbl for lbl, s in sims.items() if s >= per_label_threshold]
     kept.sort(key=lambda k: sims[k], reverse=True)
     return {"labels": kept if kept else ["Autre"], "sims": sims}
 
 
-def calibrate_threshold(
-    shots: Dict[str, List[str]],
-    label_defs: Optional[Dict[str, str]] = None,
-    alpha: float = 0.3
-) -> Tuple[float, float]:
-    """Calibre (threshold, margin) par leave-one-out sur vos exemples."""
-    pos_sims, margins = [], []
-    for lbl, examples in shots.items():
-        if len(examples) < 2:
-            continue
-        for i, ex in enumerate(examples):
-            others = [t for j, t in enumerate(examples) if j != i]
-            tmp_shots = {k: (v if k != lbl else others) for k, v in shots.items()}
-            protos = build_prototypes(tmp_shots, label_defs, alpha)
-            # collecte des stats si bien reconnu
-            vq = _embed_one_cached(ex, is_query=True)
-            if not protos:
-                continue
-            labels = list(protos.keys())
-            mats = np.stack([protos[l] for l in labels])
-            sims = mats @ vq
-            order = np.argsort(-sims)
-            if labels[order[0]] == lbl:
-                top_sim = float(sims[order[0]])
-                second_sim = float(sims[order[1]]) if len(order) > 1 else float(sims[order[0]])
-                pos_sims.append(top_sim)
-                margins.append(top_sim - second_sim)
-    thr = float(np.percentile(pos_sims, 10)) if pos_sims else 0.35
-    mar = float(np.percentile(margins, 10)) if margins else 0.05
-    thr = float(np.clip(thr, 0.2, 0.6))
-    mar = float(np.clip(mar, 0.02, 0.15))
-    return thr, mar
+
+
+# Calcule l’embedding du texte.
+# Compare avec tous les prototypes via similarité cosinus (dot product, car vecteurs normalisés).
+# Règles de décision :
+# top_sim < threshold → label = "Autre".
+# (top_sim - second_sim) < margin → label = "Autre" (texte ambigu).
+# Retourne : {"label": ..., "confidence": score_top, "sims": {label: score}}.
+
 
 
 if __name__ == "__main__":
@@ -207,7 +90,7 @@ if __name__ == "__main__":
     # Option: changer de modèle via la variable d'env EMB_MODEL_NAME
     model_name = os.getenv("EMB_MODEL_NAME", "intfloat/multilingual-e5-base")
     print(f"[Init] Chargement du modèle: {model_name}")
-    load_model(model_name)
+    f_emb.load_model(model_name)
 
     # --------- Jeu d'exemples (few-shots) par classe ----------
     shots = {
@@ -253,10 +136,11 @@ if __name__ == "__main__":
     }
 
     print("[Build] Construction des prototypes…")
-    protos = build_prototypes(shots, label_defs=label_defs, alpha=0.30)
+    calibrate = cal_emb.embedding(alpha=None)  # alpha adaptatif par classe
+    protos = calibrate.build_prototypes(shots, label_defs=label_defs)
 
     print("[Calib] Calibration des hyperparamètres de rejet (threshold, margin)…")
-    thr, mar = calibrate_threshold(shots, label_defs=label_defs, alpha=0.30)
+    thr, mar = calibrate.calibrate_threshold(shots, label_defs=label_defs)
     print(f"[Calib] threshold={thr:.3f} | margin={mar:.3f}")
 
     # --------- Jeu de tests mono-label ----------
