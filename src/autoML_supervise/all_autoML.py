@@ -69,7 +69,7 @@ class all_autoML:
         self.score_flaml = None
         try:
             try:
-                import src.autoML.flaml as auto_flaml
+                import src.autoML_supervise.flaml as auto_flaml
             except ImportError as e:
                 _record_error(self, "flaml.import", e, "Vérifie l’installation: `poetry add flaml[automl]`.")
                 return None
@@ -97,7 +97,7 @@ class all_autoML:
         self.score_autogluon = None
         try:
             try:
-                import src.autoML.autogluon as auto_gluon
+                import src.autoML_supervise.autogluon as auto_gluon
             except ImportError as e:
                 _record_error(self, "autogluon.import", e, "Installe: `poetry add autogluon`.")
                 return None
@@ -123,7 +123,7 @@ class all_autoML:
         self.score_tpot = None
         try:
             try:
-                import src.autoML.tpot1 as auto_tpot
+                import src.autoML_supervise.tpot1 as auto_tpot
             except ImportError as e:
                 _record_error(self, "tpot.import", e, "Installe: `poetry add tpot scikit-learn`.")
                 return None
@@ -156,7 +156,7 @@ class all_autoML:
         h2o = None
         try:
             try:
-                import src.autoML.h2o as auto_h2o
+                import src.autoML_supervise.h2o as auto_h2o
             except ImportError as e:
                 _record_error(self, "h2o.import", e, "Vérifie le module wrapper src.autoML.h2o.")
                 return None

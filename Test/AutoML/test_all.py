@@ -9,7 +9,7 @@ if src_path not in sys.path:
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
-import src.autoML.all_autoML as auto_all
+import src.autoML_supervise.all_autoML as auto_all
 import src.Data.load_datasets as an
 
 

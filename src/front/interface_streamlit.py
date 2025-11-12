@@ -27,20 +27,24 @@ import streamlit as st
 # -------------------------------------------------
 # Project imports
 # -------------------------------------------------
-import src.categorisation_echantillion.fews_shot_llm as f_llm
-import src.front.css as css
+
+import src.front.section_embedding as emb_section
+
 
 # — Embeddings (protos)
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
 
-from src.categorisation_echantillion.fews_shot_embedding import (
-    load_model as emb_load_model,
-    build_prototypes as emb_build_prototypes,
-    classify_one as emb_classify_one,
-    classify_one_multi as emb_classify_one_multi,
-    calibrate_threshold as emb_calibrate_threshold,
-)
+
+
+import src.few_shot.fews_shot_llm as f_llm
+
+import src.front.css as css
+
+import src.front.upload_fichier as upload_file
+import src.fonctions.clean_label as clean_labels_module
+
+
 
 # -------------------------------------------------
 # Constants & theme
@@ -50,31 +54,11 @@ DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
 DEFAULT_MODEL = "mistral:7b-instruct"
 
 # -------------------------------------------------
-# Small helpers (pure python) to keep UI code clean + testable
+# Helpers
 # -------------------------------------------------
 
-def _compute_select_index(columns: List[str], default_text_col: Optional[str]) -> int:
-    """Return the index for a selectbox given a list of column names and an optional default.
-    Falls back to 0 if default is None or not present.
-    """
-    try:
-        cols = list(columns)
-        if default_text_col is not None and default_text_col in cols:
-            return cols.index(default_text_col)
-    except Exception:
-        pass
-    return 0
+import src.front.ui_helper as ui_helper
 
-
-# -------------------------------------------------
-# UI Helpers
-# -------------------------------------------------
-@contextmanager
-def card_block(parent=st, border=True):
-    """A minimal wrapper to keep Streamlit widgets grouped like a card."""
-    c = parent.container(border=border)
-    with c:
-        yield c
 
 
 def setup_page() -> None:
@@ -85,7 +69,7 @@ def setup_page() -> None:
 
 
 def build_sidebar() -> Dict[str, Any]:
-    with card_block(st.sidebar) as sidebar:
+    with ui_helper.card_block(st.sidebar) as sidebar:
         sidebar.markdown("### ⚙️ Paramètres")
         ollama_url = sidebar.text_input("Ollama URL", value=DEFAULT_OLLAMA_URL, help="URL du serveur Ollama local")
         model = sidebar.selectbox("Modèle", options=[
@@ -122,26 +106,9 @@ def build_sidebar() -> Dict[str, Any]:
     }
 
 
-def upload_csv_ui(parent_left) -> Optional[pd.DataFrame]:
-    with card_block(parent_left) as left_card:
-        left_card.subheader("1) Charger votre CSV")
-        uploaded = left_card.file_uploader("CSV à classer", type=["csv"])
-        if not uploaded:
-            left_card.info("Chargez un fichier CSV pour commencer.")
-            return None
-        try:
-            df = pd.read_csv(uploaded)
-        except Exception:
-            uploaded.seek(0)
-            df = pd.read_csv(uploaded, sep=";")
-        left_card.caption(f"Dimensions: {df.shape[0]} lignes × {df.shape[1]} colonnes")
-        left_card.dataframe(df.head(12), use_container_width=True)
-        return df
 
-
-def choose_categories_ui(df: Optional[pd.DataFrame], parent_right) -> List[str]:
-    labels: List[str] = []
-    with card_block(parent_right) as right_card:
+def choose_categories_ui(df: Optional[pd.DataFrame], parent_right) -> list[str]:
+    with ui_helper.card_block(parent_right) as right_card:
         right_card.subheader("2) Définir les catégories")
 
         use_column_labels = False
@@ -154,16 +121,14 @@ def choose_categories_ui(df: Optional[pd.DataFrame], parent_right) -> List[str]:
 
         if use_column_labels and df is not None:
             category_column = right_card.selectbox("Colonne source", options=list(df.columns))
-            unique_values = (
-                df[category_column]
-                .astype(str)
-                .str.strip()
-                .replace("", np.nan)
-                .dropna()
-                .unique()
-                .tolist()
-            )
-            unique_values = sorted(set(unique_values))
+
+            # IMPORTANT: dropna AVANT astype(str)
+            col = df[category_column]
+            col = col[~pd.isna(col)].astype(str).str.strip()
+
+            # Clean + ordre conservé
+            unique_values = clean_labels_module._clean_labels(col.tolist())
+
             labels = right_card.multiselect(
                 "Choisis les catégories",
                 options=unique_values,
@@ -175,9 +140,15 @@ def choose_categories_ui(df: Optional[pd.DataFrame], parent_right) -> List[str]:
                 "Catégories possibles (séparées par des virgules)",
                 value="Facture,Support,RH",
             )
-            labels = [l.strip() for l in raw_labels.split(",") if l.strip()]
+            labels = [l.strip() for l in raw_labels.split(",")]
+            labels = clean_labels_module._clean_labels(labels)
 
-        categories_preview = pd.DataFrame({"Categorie": labels}) if labels else pd.DataFrame(columns=["Categorie"])
+        # Aperçu propre
+        categories_preview = (
+            pd.DataFrame({"Categorie": labels})
+            if labels else
+            pd.DataFrame(columns=["Categorie"])
+        )
         right_card.dataframe(categories_preview, use_container_width=True)
 
         if not labels:
@@ -185,6 +156,7 @@ def choose_categories_ui(df: Optional[pd.DataFrame], parent_right) -> List[str]:
 
         right_card.markdown("<small class='help'>Astuce: garde 3–8 catégories au début. Tu peux ajouter 'Autre' toi-même ou cocher l’option.</small>", unsafe_allow_html=True)
 
+    # On retourne la version nettoyée
     return labels
 
 
@@ -199,7 +171,7 @@ def choose_method_ui(df: Optional[pd.DataFrame]) -> str:
         "LLM (Ollama)": "LLM",
         "Embeddings (Prototypes)": "Embeddings",
     }
-    with card_block() as method_card:
+    with ui_helper.card_block() as method_card:
         method_card.subheader("2bis) Choisir la méthode")
         if df.shape[1] > 1:
             choice = method_card.radio(
@@ -217,7 +189,7 @@ def choose_method_ui(df: Optional[pd.DataFrame]) -> str:
 
 def choose_sampling_ui(df: pd.DataFrame) -> Tuple[int, bool]:
     """Paramètres d'échantillonnage communs aux deux méthodes."""
-    with card_block() as params_card:
+    with ui_helper.card_block() as params_card:
         params_card.subheader("3) Paramètres d'échantillonnage")
         sample_n = params_card.slider(
             "Taille de l'échantillon (prévisualisation)",
@@ -235,7 +207,7 @@ def configure_run_params_ui(df: pd.DataFrame, labels: List[str]) -> Tuple[str, i
     if df is None or len(labels) == 0:
         return "", 0, False, False
 
-    with card_block() as params_card:
+    with ui_helper.card_block() as params_card:
         params_card.subheader("3) Paramétrer le classement (LLM)")
 
         text_col = params_card.selectbox("Colonne texte à classer", options=list(df.columns))
@@ -302,7 +274,7 @@ def run_llm_pipeline(df: pd.DataFrame, labels: List[str], text_col: str, sample_
     data["pred_confidence"] = out_conf
     data["pred_justification"] = out_just
 
-    with card_block() as results_card:
+    with ui_helper.card_block() as results_card:
         results_card.success("Terminé ✅")
         results_card.subheader("4) Résultats (LLM)")
         results_card.dataframe(data.head(30), use_container_width=True)
@@ -320,180 +292,6 @@ def run_llm_pipeline(df: pd.DataFrame, labels: List[str], text_col: str, sample_
             use_container_width=True,
         )
 
-
-def embeddings_section_ui(df: pd.DataFrame, labels: List[str], do_full: bool, sample_n: int, default_text_col: Optional[str]) -> None:
-    if df is None or len(labels) == 0:
-        return
-
-    with card_block() as emb_card:
-        emb_card.subheader("🔎 Embeddings (prototypes)")
-
-        # Modèle d'embeddings
-        emb_model_name = emb_card.selectbox(
-            "Modèle d'embeddings",
-            options=[
-                "intfloat/multilingual-e5-base",
-                "sentence-transformers/all-MiniLM-L6-v2",
-                "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                "BAAI/bge-m3",
-            ],
-            index=0,
-            help="E5 conseillé (ajoute automatiquement les préfixes query:/passage:).",
-        )
-
-        # Source des prototypes
-        shot_source = emb_card.radio(
-            "Prototypes depuis…",
-            options=["CSV labellisé", "Saisie manuelle"],
-            index=0,
-            help="CSV : utilise une colonne label existante pour constituer les exemples.",
-        )
-
-        # alpha = emb_card.slider("Poids de la définition (alpha)", 0.0, 0.8, 0.3, 0.05, help="0 = off ; mélange le prototype avec la définition si fournie.")
-
-        allow_other = emb_card.toggle("Activer le rejet 'Autre'", value=True)
-        use_multi = emb_card.toggle("Mode multi-label", value=False)
-
-        # --------- Constitution des shots ---------
-        shots: Dict[str, List[str]] = {}
-        label_defs: Dict[str, str] = {}
-
-        if shot_source == "CSV labellisé":
-            emb_text_col = emb_card.selectbox(
-                "Colonne texte (protos & à classer)",
-                options=list(df.columns),
-                index=_compute_select_index(list(df.columns), default_text_col),
-            )
-            label_col = emb_card.selectbox("Colonne label (pour construire les prototypes)", options=list(df.columns))
-
-            k_per_label = emb_card.slider("Exemples par label (pour proto)", 1, 50, 5, help="On prélève les k premières occurrences par label.")
-
-            with emb_card.expander("Définitions des labels (optionnel)"):
-                emb_card.markdown("Format: **Label | définition** par ligne")
-                defs_raw = emb_card.text_area(
-                    "Définitions",
-                    value="",
-                    height=120,
-                    placeholder=(
-                        "Facture | Documents de facturation, devis, paiements…\n"
-                        "Support | Incidents, bugs, tickets…"
-                    ),
-                )
-                if defs_raw.strip():
-                    for line in defs_raw.splitlines():
-                        if "|" in line:
-                            k, v = line.split("|", 1)
-                            label_defs[k.strip()] = v.strip()
-
-            tmp = df[[emb_text_col, label_col]].dropna()
-            tmp = tmp[tmp[label_col].astype(str).isin(labels)]
-            for lbl in labels:
-                exs = tmp[tmp[label_col].astype(str) == lbl][emb_text_col].astype(str).head(k_per_label).tolist()
-                if exs:
-                    shots[lbl] = exs
-        else:
-            with emb_card.expander("Saisir des exemples (un par ligne) + définition optionnelle"):
-                for lbl in labels:
-                    col1, col2 = emb_card.columns([1, 1])
-                    with col1:
-                        ex_raw = st.text_area(f"Exemples — {lbl}", value="", height=100, key=f"shots_{lbl}")
-                        examples = [l.strip() for l in ex_raw.splitlines() if l.strip()]
-                        if examples:
-                            shots[lbl] = examples
-                    with col2:
-                        d_raw = st.text_area(f"Définition — {lbl} (optionnel)", value="", height=100, key=f"def_{lbl}")
-                        if d_raw.strip():
-                            label_defs[lbl] = d_raw.strip()
-
-        with emb_card.expander("Aperçu des prototypes (shots)"):
-            if shots:
-                preview_rows = [{"label": k, "n_exemples": len(vs), "exemple_1": (vs[0] if vs else "")} for k, vs in shots.items()]
-                emb_card.dataframe(pd.DataFrame(preview_rows), use_container_width=True)
-            else:
-                emb_card.info("Aucun exemple disponible pour construire les prototypes.")
-
-        # --------- Calibration des seuils ---------
-        colA, colB = emb_card.columns([1, 1])
-        with colA:
-            calib_btn = st.button("🧪 Calibrer (leave-one-out)", use_container_width=True)
-        with colB:
-            run_embed_btn = st.button("🚀 Lancer (Embeddings)", type="primary", use_container_width=True)
-
-        thr_default, mar_default = 0.35, 0.05
-        thr_val, mar_val = thr_default, mar_default
-
-        if calib_btn:
-            try:
-                emb_load_model(emb_model_name)
-                thr_val, mar_val = emb_calibrate_threshold(shots, label_defs if label_defs else None, )
-                emb_card.success(f"Seuil calibré ≈ {thr_val:.2f} | Marge ≈ {mar_val:.2f}")
-            except Exception as e:
-                emb_card.error(f"Calibration impossible : {e}")
-        else:
-            emb_card.caption(f"Seuil par défaut: {thr_val} | Marge par défaut: {mar_val}")
-
-        # --------- Classification embeddings ---------
-        if run_embed_btn:
-            if not shots:
-                emb_card.error("Aucun prototype. Fournis des exemples (CSV labellisé ou saisie manuelle).")
-            else:
-                try:
-                    emb_load_model(emb_model_name)
-                    protos = emb_build_prototypes(shots, label_defs if label_defs else None)
-
-                    # Determine the column to classify
-                    if shot_source == "CSV labellisé":
-                        classify_col = emb_text_col
-                    else:
-                        if default_text_col is not None and default_text_col in list(df.columns):
-                            classify_col = default_text_col
-                        else:
-                            classify_col = emb_card.selectbox("Colonne texte à classer", options=list(df.columns))
-
-                    data2 = df.copy()
-                    if not do_full:
-                        data2 = data2.head(sample_n).copy()
-
-                    n_rows2 = len(data2)
-                    prog2 = st.progress(0, text="Embeddings : classification en cours…")
-                    res_labels, res_conf = [], []
-
-                    for i, txt in enumerate(data2[classify_col].astype(str).fillna("").tolist()):
-                        if use_multi:
-                            r = emb_classify_one_multi(txt, protos, per_label_threshold=max(0.4, thr_val))
-                            res_labels.append(", ".join(r["labels"]))
-                            best = max((list(r["sims"].values()) or [0.0]))
-                            res_conf.append(float(best))
-                        else:
-                            r = emb_classify_one(txt, protos, threshold=thr_val, margin=mar_val, allow_other=allow_other)
-                            res_labels.append(r["label"])
-                            res_conf.append(r["confidence"])
-
-                        prog2.progress((i + 1) / n_rows2, text=f"Embeddings… ({i+1}/{n_rows2})")
-
-                    data2["emb_label"] = res_labels
-                    data2["emb_confidence"] = res_conf
-
-                    with card_block() as out_card:
-                        out_card.success("Terminé (Embeddings) ✅")
-                        out_card.dataframe(data2.head(30), use_container_width=True)
-
-                        if not use_multi:
-                            counts2 = data2["emb_label"].value_counts(dropna=False)
-                            out_card.markdown("#### Répartition des labels (Embeddings)")
-                            out_card.dataframe(pd.DataFrame({"label": counts2.index, "count": counts2.values}), use_container_width=True)
-
-                        csv2 = data2.to_csv(index=False).encode("utf-8")
-                        out_card.download_button(
-                            "💾 Télécharger CSV (Embeddings)",
-                            data=csv2,
-                            file_name="classified_results_embeddings.csv",
-                            mime="text/csv",
-                            use_container_width=True,
-                        )
-
-                except Exception as e:
-                    emb_card.error(f"Erreur embeddings : {e}")
 
 
 def footer_help() -> None:
@@ -547,12 +345,12 @@ def run_smoke_tests() -> Dict[str, Any]:
 
     # 4) _compute_select_index unit tests
     cols = ["a", "b", "c"]
-    assert _compute_select_index(cols, None) == 0
-    assert _compute_select_index(cols, "b") == 1
-    assert _compute_select_index(cols, "x") == 0
+    assert ui_helper._compute_select_index(cols, None) == 0
+    assert ui_helper._compute_select_index(cols, "b") == 1
+    assert ui_helper._compute_select_index(cols, "x") == 0
     # duplicated column names (edge): still returns first match
     dup_cols = ["t", "t", "u"]
-    assert _compute_select_index(dup_cols, "t") == 0
+    assert ui_helper._compute_select_index(dup_cols, "t") == 0
 
     results["select_index_tests"] = True
 
@@ -570,7 +368,7 @@ def main() -> None:
 
     col_left, col_right = st.columns([1.1, 1])
 
-    df = upload_csv_ui(col_left)
+    df = upload_file.upload_csv_ui(col_left)
     labels = choose_categories_ui(df, col_right)
 
     if df is not None and len(labels) > 0:
@@ -584,7 +382,7 @@ def main() -> None:
         else:
             # Paramètres communs pour Embeddings
             sample_n, do_full = choose_sampling_ui(df)
-            embeddings_section_ui(df=df, labels=labels, do_full=do_full, sample_n=sample_n, default_text_col=text_col if 'text_col' in locals() else None)
+            emb_section.embeddings_section_ui(df=df, labels=labels, do_full=do_full, sample_n=sample_n, default_text_col=text_col if 'text_col' in locals() else None)
 
     footer_help()
 
