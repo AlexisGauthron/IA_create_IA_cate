@@ -32,82 +32,29 @@ os.environ["MKL_NUM_THREADS"] = "1"
 
 
 # --------- Jeu d'exemples (few-shots) par classe ----------
-shots = {
-    "Support Technique": [
-        "L'application plante à l'ouverture après la mise à jour.",
-        "Je n'arrive plus à me connecter, le mot de passe est refusé.",
-        "Erreur 500 sur la page d'accueil du site.",
-        "Le serveur est indisponible depuis ce matin.",
-    ],
-    "Facturation": [
-        "Pouvez-vous renvoyer la facture de septembre avec la TVA corrigée ?",
-        "Merci d'émettre un avoir pour la facture #4589.",
-        "Quand le paiement par virement sera-t-il enregistré ?",
-        "Je souhaite un devis pour renouveler mon abonnement.",
-    ],
-    "Ressources humaines": [
-        "Je pose deux jours de congés la semaine prochaine.",
-        "Mon bulletin de paie comporte une erreur de prime.",
-        "Comment déclarer un arrêt maladie de trois jours ?",
-        "J'ai besoin d'un avenant à mon contrat de travail.",
-    ],
-    "Logistique": [
-        "Mon colis est bloqué au dépôt depuis trois jours.",
-        "Le transporteur indique une adresse de livraison incomplète.",
-        "Quel est le délai d'expédition pour cette commande ?",
-        "Le suivi indique que le paquet est perdu.",
-    ],
-    "Commercial": [
-        "Auriez-vous une remise pour 50 licences ?",
-        "Quand est prévue la prochaine démo produit ?",
-        "Pouvez-vous m'envoyer une proposition commerciale détaillée ?",
-        "Je souhaite discuter du prix et des options.",
-    ],
-}
 
-# --------- Définitions textuelles (améliorent les prototypes via alpha) ----------
-label_defs = {
-    "Support Technique": "Problèmes techniques, bugs, erreurs, connexion, mises à jour, mot de passe, serveur, application.",
-    "Facturation": "Factures, paiements, TVA, avoirs, remboursements, devis, comptabilité.",
-    "Ressources humaines": "Congés, arrêts maladie, contrat de travail, bulletin de paie, recrutement.",
-    "Logistique": "Livraison, colis, transporteur, entrepôt, expédition, délai, adresse de livraison.",
-    "Commercial": "Prospection, devis, prix, remise, démonstration produit, négociation, vente.",
-}
+import src.Data.load_datasets as an
 
-# --------- Jeu de tests mono-label ----------
-tests = [
-    ("Je n'arrive plus à me connecter après la mise à jour.", "Support Technique"),
-    ("Pouvez-vous me renvoyer la facture de septembre avec la TVA corrigée ?", "Facturation"),
-    ("Mon colis est bloqué au dépôt depuis trois jours.", "Logistique"),
-    ("Je souhaite poser deux jours de congés la semaine prochaine.", "Ressources humaines"),
-    ("Auriez-vous une remise pour 50 licences ?", "Commercial"),
-    ("Le serveur affiche une erreur 500 sur la page d'accueil.", "Support Technique"),
-    ("Merci d'annuler la facture #4589 et d'émettre un avoir.", "Facturation"),
-    ("Quand est prévue la prochaine démo produit ?", "Commercial"),
-    ("Mon bulletin de paie comporte une erreur de prime.", "Ressources humaines"),
-    ("Le transporteur m'indique une adresse incomplète pour la livraison.", "Logistique"),
-]
+Nom_Projet = "cate_metier"
+print("[INFO] Chargement Dataset\n")
+# Chargement dataset
+df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{Nom_Projet}")
 
-# --------- Démo multi-label ----------
-multi_tests = [
-    "Le colis est perdu et j'ai besoin d'un avoir.",
-    "Après la démo, pouvez-vous m'envoyer le devis ?",
-    "Impossible de me connecter pour récupérer ma facture.",
-    "Je dois modifier l'adresse de livraison et connaître le prix.",
-]
+shots = df_train.groupby("label")["text"].apply(list).to_dict()
+print(f"[INFO] Shots par classe : { {k: len(v) for k,v in shots.items()} }")
 
-
+tests = df_test
 
 if __name__ == "__main__":
     # Petit banc d'essai autonome pour les fonctions du module.
 
-    import src.few_shot.embedding.few_shot as few_shot_module
-    exp = few_shot_module.FewShotExperiment(shots, tests, model_name="intfloat/multilingual-e5-base")
+    import src.few_shot.prototypical.few_shot as few_shot_module
+    exp = few_shot_module.FewShotExperiment(shots, tests, model_name="intfloat/multilingual-e5-large")
 
-    # 1) Un run unique (garde tous les prints)
+    # 1) Un run unique (garde tous les prints) avec définitions créeres via LLM
     thr, mar, acc = exp.run_once(
         mono_label=True, multi_label=False,
-        allow_defs=False, label_defs=label_defs,        # ou allow_defs=True pour génération LLM
+        allow_defs=True, label_defs=None,        # ou allow_defs=True pour génération LLM
         alpha_def=None, alpha_base=0.30, alpha_max_extra=0.40, alpha_lam=6,
         perc=10, class_balanced=True,
         thr_bounds=(0.20, 0.60), mar_bounds=(0.02, 0.15),

@@ -29,10 +29,10 @@ from typing import Dict, List, Tuple, Optional, Iterable
 import textwrap
 import numpy as np  
 
-import src.few_shot.embedding.embed_texte as f_emb
-import src.few_shot.embedding.calibrate_proto as cal_emb
-import src.few_shot.embedding.classify as fews_emb
-import src.few_shot.embedding.get_definition as get_def
+import src.few_shot.prototypical.embed_texte as f_emb
+import src.few_shot.prototypical.calibrate_proto as cal_emb
+import src.few_shot.prototypical.classify as fews_emb
+import src.few_shot.prototypical.get_definition as get_def
 
 
 
@@ -49,7 +49,7 @@ class FewShotExperiment:
     def __init__(self,
                  shots: Optional[Dict[str, List[str]]] = None,
                  tests: Optional[Iterable] = None,
-                 model_name: str = "intfloat/multilingual-e5-base"):
+                 model_name: str = "intfloat/multilingual-e5-large"):
         
         if shots is None:
             print("[Init] Aucun shots fourni pour l’instant — vous pourrez les ajouter via set_shots()/add_shot().")
@@ -85,7 +85,7 @@ class FewShotExperiment:
                         allow_defs: bool = False,
                         label_defs: Optional[Dict[str, str]] = None,
                         *,
-                        model_defs: str = "mistral:latest",
+                        model_defs: str = "mistral:7b-instruct",
                         max_terms_defs: int = 10,
                         max_pos_examples_defs: int = 12,
                         max_neg_examples_defs: int = 10,
@@ -96,7 +96,7 @@ class FewShotExperiment:
             defs = label_defs
         elif allow_defs is True:
             print("\nCréation des définitions de labels via LLM…\n")
-            defs = get_def.definition_labels_concises(
+            defs = get_def.definition_labels_completes(
                 self.shots,
                 model=model_defs,
                 max_terms=max_terms_defs,
@@ -197,6 +197,7 @@ class FewShotExperiment:
         tests = list(tests) if tests is not None else self.tests
         print("\n===== Test mono-label (classify_one) =====")
         ok = 0
+        print(f"Résultats des tests: {tests}")
         for text, expected in tests:
             res = fews_emb.classify_one(text, self._protos, threshold=threshold, margin=margin, allow_other=allow_other,embedder = self.embedder,model_name = self.model_name)
             pred, conf = res["label"], res["confidence"]
@@ -231,7 +232,7 @@ class FewShotExperiment:
                  multi_label: bool = False,
                  allow_defs: bool = False,
                  label_defs: Optional[Dict[str, str]] = None,
-                 model_defs: str = "mistral:latest",
+                 model_defs: str = "mistral:7b-instruct",
                  max_terms_defs: int = 10,
                  max_pos_examples_defs: int = 12,
                  max_neg_examples_defs: int = 10,
@@ -239,12 +240,12 @@ class FewShotExperiment:
                  seed_defs: Optional[int] = 42,
                  alpha_def: float | None = None,
                  alpha_base: float = 0.30,
-                 alpha_max_extra: float = 0.40,
+                 alpha_max_extra: float = 0.60,
                  alpha_lam: int = 6,
                  perc: int = 10,
                  class_balanced: bool = True,
-                 thr_bounds: Tuple[float, float] = (0.20, 0.60),
-                 mar_bounds: Tuple[float, float] = (0.02, 0.15),
+                 thr_bounds: Tuple[float, float] = (0.15, 0.60),
+                 mar_bounds: Tuple[float, float] = (0.01, 0.15),
                  multi_label_floor: float = 0.40) -> Tuple[float, float, Optional[float]]:
         # defs
         self.set_definitions(

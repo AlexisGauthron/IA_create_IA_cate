@@ -1,0 +1,201 @@
+label,text
+Support Technique,assistance
+Support Technique,dépannage
+Support Technique,ticket
+Support Technique,bug
+Support Technique,installation
+Support Technique,diagnostic
+Support Technique,helpdesk
+Support Technique,logiciel
+Support Technique,hardware
+Support Technique,patch
+Support Technique,mise à jour
+Support Technique,résolution
+Support Technique,incident
+Support Technique,maintenance
+Support Technique,support utilisateur
+Support Technique,plantage
+Support Technique,réseau
+Support Technique,serveur
+Support Technique,configuration
+Support Technique,outil
+Facturation,invoice
+Facturation,paiement
+Facturation,TVA
+Facturation,relance
+Facturation,facture
+Facturation,encaissement
+Facturation,bon de commande
+Facturation,remboursement
+Facturation,quittance
+Facturation,budget
+Facturation,régularisation
+Facturation,comptabilité
+Facturation,facture client
+Facturation,devis
+Facturation,transaction
+Facturation,crédit
+Facturation,débit
+Facturation,encaisse
+Facturation,relevé
+Facturation,approbation
+Ressources Humaines,recrutement
+Ressources Humaines,contrat
+Ressources Humaines,congés
+Ressources Humaines,entretien
+Ressources Humaines,formation
+Ressources Humaines,onboarding
+Ressources Humaines,départ
+Ressources Humaines,évaluation
+Ressources Humaines,paie
+Ressources Humaines,absences
+Ressources Humaines,salarié
+Ressources Humaines,mobilité
+Ressources Humaines,promotion
+Ressources Humaines,licenciement
+Ressources Humaines,déclaration
+Ressources Humaines,HR
+Ressources Humaines,candidature
+Ressources Humaines,avantages
+Ressources Humaines,administratif
+Ressources Humaines,compétences
+Logistique,transport
+Logistique,livraison
+Logistique,colis
+Logistique,entrepôt
+Logistique,expédition
+Logistique,inventaire
+Logistique,suivi
+Logistique,stockage
+Logistique,approvisionnement
+Logistique,camion
+Logistique,planning
+Logistique,fret
+Logistique,commande
+Logistique,entreposage
+Logistique,dédouanement
+Logistique,quai
+Logistique,route
+Logistique,délai
+Logistique,logistique inversée
+Logistique,expéditeur
+Commercial,vente
+Commercial,prospection
+Commercial,client
+Commercial,devis
+Commercial,négociation
+Commercial,contrat
+Commercial,offre
+Commercial,remise
+Commercial,suivi
+Commercial,rendez-vous
+Commercial,portefeuille
+Commercial,chiffre d’affaires
+Commercial,abonnement
+Commercial,fidélisation
+Commercial,prospection
+Commercial,pitch
+Commercial,proposition commerciale
+Commercial,closing
+Commercial,tarification
+Commercial,marché
+Marketing,campagne
+Marketing,publicité
+Marketing,branding
+Marketing,SEO
+Marketing,social media
+Marketing,email
+Marketing,contenu
+Marketing,analyse
+Marketing,stratégie
+Marketing,promotion
+Marketing,marché
+Marketing,influence
+Marketing,engagement
+Marketing,ciblage
+Marketing,segmentation
+Marketing,conversion
+Marketing,lead
+Marketing,newsletter
+Marketing,événementiel
+Marketing,communication
+Informatique / Développement,python
+Informatique / Développement,java
+Informatique / Développement,API
+Informatique / Développement,base de données
+Informatique / Développement,SQL
+Informatique / Développement,backend
+Informatique / Développement,frontend
+Informatique / Développement,cloud
+Informatique / Développement,serveur
+Informatique / Développement,framework
+Informatique / Développement,test
+Informatique / Développement,versioning
+Informatique / Développement,git
+Informatique / Développement,déploiement
+Informatique / Développement,container
+Informatique / Développement,microservice
+Informatique / Développement,code
+Informatique / Développement,documentation
+Informatique / Développement,debug
+Informatique / Développement,architecture
+Finance / Comptabilité,budget
+Finance / Comptabilité,bilan
+Finance / Comptabilité,trésorerie
+Finance / Comptabilité,investissement
+Finance / Comptabilité,audit
+Finance / Comptabilité,analyse financière
+Finance / Comptabilité,coût
+Finance / Comptabilité,reporting
+Finance / Comptabilité,résultat
+Finance / Comptabilité,compte
+Finance / Comptabilité,dépense
+Finance / Comptabilité,actif
+Finance / Comptabilité,passif
+Finance / Comptabilité,stock
+Finance / Comptabilité,dette
+Finance / Comptabilité,crédit
+Finance / Comptabilité,bilan prévisionnel
+Finance / Comptabilité,fiscalité
+Finance / Comptabilité,rentabilité
+Finance / Comptabilité,consolidation
+Juridique / Conformité,contrat
+Juridique / Conformité,réglementation
+Juridique / Conformité,loi
+Juridique / Conformité,conformité
+Juridique / Conformité,droit
+Juridique / Conformité,litige
+Juridique / Conformité,clause
+Juridique / Conformité,avocat
+Juridique / Conformité,document
+Juridique / Conformité,audit
+Juridique / Conformité,protection
+Juridique / Conformité,confidentialité
+Juridique / Conformité,tribunal
+Juridique / Conformité,risque
+Juridique / Conformité,responsabilité
+Juridique / Conformité,vérification
+Juridique / Conformité,code
+Juridique / Conformité,politique
+Juridique / Conformité,permis
+Juridique / Conformité,norme
+Service Client / Relation Client,réclamation
+Service Client / Relation Client,satisfaction
+Service Client / Relation Client,support
+Service Client / Relation Client,appel
+Service Client / Relation Client,email
+Service Client / Relation Client,feedback
+Service Client / Relation Client,suivi client
+Service Client / Relation Client,assistance
+Service Client / Relation Client,ticket
+Service Client / Relation Client,chat
+Service Client / Relation Client,conversation
+Service Client / Relation Client,réponse
+Service Client / Relation Client,solution
+Service Client / Relation Client,relation
+Service Client / Relation Client,fidélisation
+Service Client / Relation Client,enquête
+Service Client / Relation Client,plainte
+Service Client / Relation Client,enquête de satisfaction
+Service Client / Relation Client,service après-vente
+Service Client / Relation Client,hotline

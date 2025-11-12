@@ -1,0 +1,51 @@
+text,label
+Résolution bug logiciel,Support Technique
+Assistance imprimante,Support Technique
+Diagnostic réseau,Support Technique
+Support matériel,Support Technique
+Réinitialisation mot de passe,Support Technique
+Création facture client,Facturation
+Remboursement TVA,Facturation
+Relance paiement,Facturation
+Émission note de crédit,Facturation
+Suivi encaissement,Facturation
+Demande congé annuel,Ressources Humaines
+Suivi formation,Ressources Humaines
+Entretien annuel,Ressources Humaines
+Recrutement interne,Ressources Humaines
+Gestion absences,Ressources Humaines
+Planification livraison,Logistique
+Suivi colis,Logistique
+Gestion stock entrepôt,Logistique
+Organisation transport,Logistique
+Réception marchandise,Logistique
+Prospection client,Commercial
+Négociation contrat,Commercial
+Devis personnalisé,Commercial
+Suivi portefeuille,Commercial
+Fidélisation client,Commercial
+Campagne réseaux sociaux,Marketing
+Emailing promotionnel,Marketing
+Analyse trafic site web,Marketing
+Création visuel publicitaire,Marketing
+Gestion newsletter,Marketing
+Rédaction contrat,Juridique
+Veille légale,Juridique
+Analyse conformité,Juridique
+Gestion litiges,Juridique
+Signature accord,Juridique
+Déploiement application,IT / Développement
+Correction bug code,IT / Développement
+Mise à jour base de données,IT / Développement
+Développement API,IT / Développement
+Test logiciel,IT / Développement
+Organisation réunion,Administration
+Classement dossiers,Administration
+Gestion agenda,Administration
+Archivage documents,Administration
+Saisie courrier,Administration
+Réponse email client,Service Client
+Prise d'appel,Service Client
+Traitement réclamation,Service Client
+Suivi satisfaction,Service Client
+Conseil produit,Service Client

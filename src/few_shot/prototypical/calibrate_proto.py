@@ -26,7 +26,7 @@ from typing import Dict, List, Tuple, Optional
 import numpy as np
 
 
-import src.few_shot.embedding.embed_texte as embed_texte
+import src.few_shot.prototypical.embed_texte as embed_texte
 
 
 
@@ -186,6 +186,8 @@ class Calibrate_proto:
                     second_sim = float(sims[order[1]]) if len(order) > 1 else top_sim
                     per_label_pos_sims[lbl].append(top_sim)
                     per_label_margins[lbl].append(top_sim - second_sim)
+
+
 
         # Petit utilitaire : percentile sécurisé avec valeur par défaut si liste vide
         def _safe_percentile(xs: List[float], p: int, default: float) -> float:

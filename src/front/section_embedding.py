@@ -36,8 +36,8 @@ import streamlit as st
 # -------------------------------------------------
 
 
-import src.few_shot.embedding.few_shot as few_shot_emb
-import src.few_shot.embedding.classify as emb_classify
+import src.few_shot.prototypical.few_shot as few_shot_emb
+import src.few_shot.prototypical.classify as emb_classify
 
 
 # -------------------------------------------------
@@ -185,7 +185,7 @@ def embeddings_section_ui(
                         defs_map = few_shot_embedding.set_definitions(
                             allow_defs=True,
                             label_defs=None,
-                            model_defs="mistral:latest",
+                            model_defs="mistral:7b-instruct",
                             max_terms_defs=10,
                             temperature_defs=0.0,
                         )

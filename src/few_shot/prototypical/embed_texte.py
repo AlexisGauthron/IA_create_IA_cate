@@ -25,7 +25,7 @@ import torch
 
 class Embed_textes:
     
-    def __init__(self, model_name: str = "intfloat/multilingual-e5-base",
+    def __init__(self, model_name: str = "intfloat/multilingual-e5-large",
                  device: Optional[str] = None, threads: int = 1):
         
         torch.set_num_threads(max(1, int(threads)))

@@ -25,8 +25,8 @@ from typing import Dict, List, Tuple, Optional
 import numpy as np
 
 
-import src.few_shot.embedding.embed_texte as embed_texte
-import src.few_shot.embedding.calibrate_proto as cal_emb
+import src.few_shot.prototypical.embed_texte as embed_texte
+import src.few_shot.prototypical.calibrate_proto as cal_emb
 
 
 
