@@ -86,119 +86,125 @@ class Calibrate_proto:
         return protos
 
 
-
     def calibrate_threshold(
             self,
-            perc: int,                         # Percentile utilisé pour fixer les seuils (ex: 10 → 10e percentile = robuste aux outliers)
-            class_balanced: bool,            # Si True : calcule un percentile par classe, puis médiane entre classes (équilibre les classes rares)
-            thr_bounds: Tuple[float, float],  # Bornes min/max du seuil de similarité
-            mar_bounds: Tuple[float, float],  # Bornes min/max du seuil de marge
+            perc: int,
+            class_balanced: bool,
+            thr_bounds: Tuple[float, float],
+            mar_bounds: Tuple[float, float],
         ) -> Tuple[float, float]:
         """
-        Calibre deux seuils (thr, mar) pour une décision "accepter la prédiction vs. s'abstenir",
-        à partir d'un classifieur par prototypes sur embeddings.
-
-        Méthode :
-        - Leave-One-Out (LOO) sur les exemples de chaque classe :
-            pour chaque exemple, on reconstruit les prototypes SANS cet exemple
-            (évite de s'auto-évaluer sur un prototype qui le contient).
-        - On ne collecte des stats que pour les cas "positifs" (la vraie classe est top-1).
-            * top_sim   = similarité du top-1
-            * margin    = top_sim - second_sim (écart avec le 2e)
-        - Les seuils finaux sont des percentiles (robustes) de ces distributions,
-            équilibrés par classe si demandé, puis "clippés" dans des bornes sûres.
-
-        Utilisation typique après calibration :
-            accepter si (top_sim >= thr) ET ((top_sim - second_sim) >= mar), sinon s'abstenir / "Autre".
-
-        Remarques :
-        - Les prototypes par classe mélangent (au besoin) la moyenne des exemples et
-            une "définition" textuelle de la classe via un alpha dépendant du nombre d'exemples.
-        - On suppose que f_emb.* renvoie des embeddings L2-normalisés ; le produit scalaire ≈ cosinus.
+        Même logique que ta version actuelle, mais :
+        - embeddings des shots calculés une seule fois
+        - prototypes recalculés par somme/moyenne (pas de ré-encode).
         """
 
         # ------------------------------------------------------------
-        # Helper : construit un prototype par classe avec "alpha-mix"
-        #          entre la moyenne des embeddings d'exemples et la
-        #          définition textuelle de la classe (si fournie).
-        #          Le prototype est L2-normalisé.
+        # 1) Pré-calcul des embeddings de tous les shots
         # ------------------------------------------------------------
-        def _build_prototypes_alpha(shots_dict: Dict[str, List[str]]) -> Dict[str, np.ndarray]:
-            protos = {}
-            for lbl, examples in shots_dict.items():
-                if not examples:
-                    continue
+        shot_vecs: Dict[str, np.ndarray] = {}
+        shot_sums: Dict[str, np.ndarray] = {}
+        shot_counts: Dict[str, int] = {}
 
-                # Embeddings des exemples de la classe
-                ex_vecs = self.embedder.embed_texts(examples, is_query=False)
-                proto = ex_vecs.mean(axis=0)  # prototype = moyenne
+        # On encode chaque shot UNE fois
+        for lbl, examples in self.shots.items():
+            if not examples:
+                continue
+            ex_vecs = self.embedder.embed_texts(examples, is_query=False)  # [n_lbl, d]
+            ex_vecs = np.asarray(ex_vecs, dtype=np.float32)
+            shot_vecs[lbl] = ex_vecs
+            shot_sums[lbl] = ex_vecs.sum(axis=0)
+            shot_counts[lbl] = ex_vecs.shape[0]
 
-                # S'il existe une définition textuelle de la classe,
-                # on l'entremêle avec un poids alpha dépendant du nb d'exemples
-                if self.label_defs and self.label_defs.get(lbl):
-                    a = self._alpha_for_count(len(examples))           # alpha ∈ [0, 1], ↑ si classe rare
-                    d_vec = self.embedder._embed_one_cached(self.model_name,self.label_defs[lbl], is_query=False)
-                    proto = (1.0 - a) * proto + a * d_vec
+        # Embeddings des définitions textuelles (si présentes)
+        label_def_vecs: Dict[str, np.ndarray] = {}
+        if self.label_defs:
+            for lbl, text in self.label_defs.items():
+                if text:
+                    # _embed_one_cached → déjà optimisé / mis en cache
+                    label_def_vecs[lbl] = self.embedder._embed_one_cached(
+                        self.model_name, text, is_query=False
+                    )
 
-                # Normalisation L2 (nécessaire pour un produit scalaire = cosinus)
-                proto = proto / (np.linalg.norm(proto) + 1e-8)
-                protos[lbl] = proto.astype(np.float32)
-            return protos
-
-        # Stocke, par classe, les métriques "positives" collectées en LOO
-        per_label_pos_sims: Dict[str, List[float]] = {k: [] for k in self.shots}   # top_sim lorsque le top-1 est correct
-        per_label_margins: Dict[str, List[float]] = {k: [] for k in self.shots}    # margin = top1 - top2 (idem)
+        # Stats collectées
+        per_label_pos_sims: Dict[str, List[float]] = {k: [] for k in self.shots}
+        per_label_margins: Dict[str, List[float]] = {k: [] for k in self.shots}
 
         # ------------------------------------------------------------
-        # Boucle Leave-One-Out :
-        #   pour chaque exemple d'une classe, le retirer, reconstruire
-        #   les prototypes, prédire, et si correct → collecter métriques.
+        # 2) Boucle Leave-One-Out :
+        #    pour chaque exemple, on retire son vecteur de la moyenne
+        #    de sa classe, et on crée les prototypes à partir de sommes.
         # ------------------------------------------------------------
         for lbl, examples in self.shots.items():
-            if len(examples) < 2:
-                # Nécessite ≥ 2 exemples pour faire du LOO sur cette classe
+            n_lbl = len(examples)
+            if n_lbl < 2:
+                # pas possible de faire du LOO avec < 2 exemples
+                continue
+            if lbl not in shot_vecs:
                 continue
 
-            for i, ex in enumerate(examples):
-                # Retirer l'exemple courant de sa classe
-                others = [t for j, t in enumerate(examples) if j != i]
-                tmp_shots = {k: (v if k != lbl else others) for k, v in self.shots.items()}
+            vecs_lbl = shot_vecs[lbl]          # [n_lbl, d]
+            sum_lbl = shot_sums[lbl]           # [d]
 
-                # Prototypes avec alpha-mix + normalisation
-                protos = _build_prototypes_alpha(tmp_shots)
+            for i, ex in enumerate(examples):
+                # Construire les prototypes de TOUTES les classes
+                protos: Dict[str, np.ndarray] = {}
+
+                for lbl2, ex_vecs2 in shot_vecs.items():
+                    cnt2 = shot_counts[lbl2]
+
+                    # Cas de la classe dont on retire l'exemple i
+                    if lbl2 == lbl:
+                        if n_lbl <= 1:
+                            continue  # sécurité
+                        # moyenne des "others" = (somme - vecteur_i) / (n-1)
+                        sum_others = sum_lbl - vecs_lbl[i]
+                        cnt_others = n_lbl - 1
+                        if cnt_others <= 0:
+                            continue
+                        mean_vec = sum_others / float(cnt_others)
+                        effective_count = cnt_others
+                    else:
+                        # Classes non modifiées : moyenne simple
+                        mean_vec = shot_sums[lbl2] / float(cnt2)
+                        effective_count = cnt2
+
+                    # alpha-mix avec la définition, si dispo
+                    proto = mean_vec
+                    d_vec = label_def_vecs.get(lbl2)
+                    if d_vec is not None:
+                        a = self._alpha_for_count(effective_count)  # dépend du nb d'exemples
+                        proto = (1.0 - a) * proto + a * d_vec
+
+                    # Normalisation L2
+                    proto = proto / (np.linalg.norm(proto) + 1e-8)
+                    protos[lbl2] = proto.astype(np.float32)
+
                 if not protos:
                     continue
 
                 # Embedding de la requête (exemple tenu-out)
-                vq = self.embedder._embed_one_cached(self.model_name,ex, is_query=True)
+                vq = self.embedder._embed_one_cached(self.model_name, ex, is_query=True)
 
-                # Matrice [n_classes, dim] et similarités cosinus
                 labels = list(protos.keys())
-                mats = np.stack([protos[l] for l in labels])
-                sims = mats @ vq                              # produit scalaire = cosinus si L2-norm.
+                mats = np.stack([protos[l] for l in labels])  # [n_classes, d]
+                sims = mats @ vq                              # cosinus
 
-                # Classements décroissants de similarité
                 order = np.argsort(-sims)
-
-                # On ne garde les stats que si la vraie classe est bien top-1
                 if labels[order[0]] == lbl:
                     top_sim = float(sims[order[0]])
                     second_sim = float(sims[order[1]]) if len(order) > 1 else top_sim
                     per_label_pos_sims[lbl].append(top_sim)
                     per_label_margins[lbl].append(top_sim - second_sim)
 
+            print(f"[Calib_proto-fast] Classe '{lbl}': {len(per_label_pos_sims[lbl])} positifs sur {len(examples)}")
 
-
-        # Petit utilitaire : percentile sécurisé avec valeur par défaut si liste vide
+        # ------------------------------------------------------------
+        # 3) Percentiles + agrégation comme avant
+        # ------------------------------------------------------------
         def _safe_percentile(xs: List[float], p: int, default: float) -> float:
             return float(np.percentile(xs, p)) if xs else default
 
-        # ------------------------------------------------------------
-        # Agrégation robuste par percentile
-        #   - class_balanced=True : percentile par classe puis médiane,
-        #     ainsi les classes fréquentes ne dominent pas.
-        #   - False : on pool tout et on prend un seul percentile global.
-        # ------------------------------------------------------------
         if class_balanced:
             thr_list = [_safe_percentile(per_label_pos_sims[lbl], perc, 0.35) for lbl in self.shots]
             mar_list = [_safe_percentile(per_label_margins[lbl], perc, 0.05) for lbl in self.shots]
@@ -210,7 +216,6 @@ class Calibrate_proto:
             thr = _safe_percentile(all_pos, perc, 0.35)
             mar = _safe_percentile(all_mar, perc, 0.05)
 
-        # Clip final dans des bornes "raisonnables" pour éviter des seuils extrêmes
         thr = float(np.clip(thr, *thr_bounds))
         mar = float(np.clip(mar, *mar_bounds))
         return thr, mar

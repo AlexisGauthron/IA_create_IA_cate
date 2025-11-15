@@ -1,4 +1,3 @@
-
 import sys
 import os
 
@@ -16,12 +15,10 @@ if multiprocessing.get_start_method(allow_none=True) != 'spawn':
 # Importation pour mac 
 os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
-
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
-
 
 
 from itertools import product
@@ -35,37 +32,41 @@ import src.few_shot.prototypical.classify as fews_emb
 import src.few_shot.prototypical.get_definition as get_def
 
 
-
-
 def _freeze_shots(shots: Dict[str, List[str]]) -> Tuple:
     return tuple((lbl, tuple(shots[lbl])) for lbl in sorted(shots))
 
-def _freeze_defs(defs: Optional[Dict[str, str]]) -> Optional[Tuple]:
-    return None if defs is None else tuple(sorted(defs.items()))
 
-class FewShotExperiment:
-
+class FewShot_prototypical:
 
     def __init__(self,
                  shots: Optional[Dict[str, List[str]]] = None,
                  tests: Optional[Iterable] = None,
-                 model_name: str = "intfloat/multilingual-e5-large"):
-        
+                 model_name: str = "intfloat/multilingual-e5-large",
+                 label_defs: Optional[Dict[str, str]] = None,
+                 defs_kwargs: Optional[Dict] = None,
+                 ):
+        """
+        defs_kwargs : paramètres optionnels passés à get_definition pour la
+        génération automatique des définitions si label_defs est None.
+        """
         if shots is None:
             print("[Init] Aucun shots fourni pour l’instant — vous pourrez les ajouter via set_shots()/add_shot().")
             self.shots: Dict[str, List[str]] = {}
         else:
             self.shots = shots
+
         self.tests = list(tests) if tests is not None else []
         self.model_name = model_name
         self.embedder = f_emb.Embed_textes(self.model_name)
 
-        # état courant
-        self.label_defs: Optional[Dict[str, str]] = None
-        if shots is not None:
-            self._shots_key = _freeze_shots(shots)
+        # Clé pour les shots
+        if self.shots:
+            self._shots_key: Optional[Tuple] = _freeze_shots(self.shots)
         else:
-            self._shots_key: Optional[Tuple] = None
+            self._shots_key = None
+
+        # label_defs + clé associée seront définis via set_definitions
+        self.label_defs: Optional[Dict[str, str]] = None
         self._defs_key: Optional[Tuple] = None
 
         # objets/caches
@@ -76,56 +77,85 @@ class FewShotExperiment:
 
         self.rows = None  # pour le sweep
 
+        # ---------- Initialisation des définitions dès le __init__ ----------
+        # Si label_defs est fourni, on l'utilise.
+        # Sinon, on essaye de les générer automatiquement à partir des shots.
+        defs_kwargs = defs_kwargs or {}
+        self.set_definitions(label_defs=label_defs, **defs_kwargs)
+
+    # ------------------------------------------------------------------ #
+    # Gestion des shots & définitions
+    # ------------------------------------------------------------------ #
+
     def set_shots(self, shots: Dict[str, List[str]]) -> None:
+        """
+        Met à jour les shots et la clé associée.
+        ⚠️ Ne recalcule pas automatiquement les définitions : appelez
+        set_definitions() si vous voulez les régénérer après avoir changé les shots.
+        """
         self.shots = shots
         self._shots_key = _freeze_shots(shots)
 
-    # ---------- Définitions (avec prints) ----------
-    def set_definitions(self,
-                        allow_defs: bool = False,
-                        label_defs: Optional[Dict[str, str]] = None,
-                        *,
-                        model_defs: str = "mistral:7b-instruct",
-                        max_terms_defs: int = 10,
-                        max_pos_examples_defs: int = 12,
-                        max_neg_examples_defs: int = 10,
-                        temperature_defs: float = 0.0,
-                        seed_defs: Optional[int] = 42) -> None:
-        if allow_defs is False and label_defs:
-            print("\nUtilisation des définitions de labels fournies…\n")
-            defs = label_defs
-        elif allow_defs is True:
-            print("\nCréation des définitions de labels via LLM…\n")
-            defs = get_def.definition_labels_completes(
-                self.shots,
-                model=model_defs,
-                max_terms=max_terms_defs,
-                max_pos_examples=max_pos_examples_defs,
-                max_neg_examples=max_neg_examples_defs,
-                temperature=temperature_defs,
-                seed=seed_defs
-            )
-        else:
-            print("\nPas de définitions de labels utilisées.\n")
-            defs = None
-
-        self.label_defs = defs
-        if defs:
-            print("Définitions de labels utilisées:")
-            for lbl, defi in defs.items():
-                print(f"- {lbl}: {defi}")
-            print("")
-
-        # changer les defs invalide les protos / calibrations
-        self._defs_key = _freeze_defs(defs)
-        self._calibrator = None
+        # dès que les shots changent, les protos/calib ne sont plus valides
         self._protos = None
         self._protos_key = None
         self._thrmar_cache.clear()
-        return defs
 
+    def set_definitions(self,
+                        label_defs: Optional[Dict[str, str]] = None,
+                        **defs_kwargs) -> None:
+        """
+        Définit ou génère les définitions de labels.
 
+        - Si label_defs est fourni : on l'utilise directement.
+        - Sinon : on tente de les générer automatiquement à partir des shots,
+          via le module get_definition.
 
+        defs_kwargs est passé au backend de génération (LLM, heuristique, etc.).
+        Adapte l'appel à get_def.* en fonction de ce que tu as dans get_definition.py.
+        """
+        # 1) Cas où l'utilisateur fournit explicitement les définitions
+        if label_defs is not None:
+            self.label_defs = label_defs
+            print(f"[Defs] {len(self.label_defs)} définitions fournies manuellement.")
+        else:
+            # 2) Cas génération auto à partir des shots
+            if not self.shots:
+                print("[Defs] Aucune définition fournie et aucun shots → pas de définitions pour l’instant.")
+                self.label_defs = None
+            else:
+                print("[Defs] Aucune définition fournie — génération automatique à partir des shots…")
+                # 💡 ADAPTE ICI à ton API réelle dans get_definition.py
+                # Exemple hypothétique :
+                #
+                #   self.label_defs = get_def.build_definitions(self.shots, **defs_kwargs)
+                #
+                # Si tu as un autre nom de fonction, adapte :
+                #   get_def.generate_label_defs, get_def.make_definitions, etc.
+                if hasattr(get_def, "build_definitions"):
+                    self.label_defs = get_def.build_definitions(self.shots, **defs_kwargs)
+                else:
+                    # Fallback ultra simple si aucune fonction n'existe :
+                    self.label_defs = {
+                        lbl: f"Classe '{lbl}' (définition auto basique)"
+                        for lbl in self.shots.keys()
+                    }
+
+        # 3) Mise à jour de la clé des définitions
+        if self.label_defs:
+            # clé déterministe basée sur le contenu des définitions
+            self._defs_key = tuple(sorted(self.label_defs.items()))
+        else:
+            self._defs_key = None
+
+        # 4) Les prototypes/calib dépendent des définitions → on invalide les caches
+        self._protos = None
+        self._protos_key = None
+        self._thrmar_cache.clear()
+
+        # Si un calibrateur existe déjà, on lui pousse les nouvelles defs
+        if self._calibrator is not None:
+            self._calibrator.label_defs = self.label_defs
 
     # ---------- Prototypes (avec tes prints) ----------
     def build_prototypes(self,
@@ -143,14 +173,14 @@ class FewShotExperiment:
         if key != self._protos_key:
             print("[Build] Construction des prototypes…")
             self._calibrator = cal_emb.Calibrate_proto(
-                shots = self.shots,
-                label_defs = self.label_defs,
-                alpha = alpha_def,                   # None => alpha adaptatif par classe
-                alpha_base = alpha_base,
-                alpha_max_extra = alpha_max_extra,
-                alpha_lam = alpha_lam,
-                model_name = self.model_name,
-                embedder = self.embedder
+                shots=self.shots,
+                label_defs=self.label_defs,
+                alpha=alpha_def,                   # None => alpha adaptatif par classe
+                alpha_base=alpha_base,
+                alpha_max_extra=alpha_max_extra,
+                alpha_lam=alpha_lam,
+                model_name=self.model_name,
+                embedder=self.embedder
             )
             self._protos = self._calibrator.build_prototypes()
             self._protos_key = key
@@ -160,9 +190,6 @@ class FewShotExperiment:
             print("[Build] Prototypes déjà à jour (cache).")
 
         return self._protos
-
-
-
 
     # ---------- Calibration (avec tes prints) ----------
     def calibrate(self,
@@ -189,8 +216,6 @@ class FewShotExperiment:
         print(f"[Calib] threshold={thr:.3f} | margin={mar:.3f}")
         return thr, mar
 
-
-
     # ---------- Tests (avec tes prints) ----------
     def test_mono(self, threshold: float, margin: float, allow_other: bool = True,
                   tests: Optional[Iterable] = None) -> float:
@@ -199,7 +224,15 @@ class FewShotExperiment:
         ok = 0
         print(f"Résultats des tests: {tests}")
         for text, expected in tests:
-            res = fews_emb.classify_one(text, self._protos, threshold=threshold, margin=margin, allow_other=allow_other,embedder = self.embedder,model_name = self.model_name)
+            res = fews_emb.classify_one(
+                text,
+                self._protos,
+                threshold=threshold,
+                margin=margin,
+                allow_other=allow_other,
+                embedder=self.embedder,
+                model_name=self.model_name
+            )
             pred, conf = res["label"], res["confidence"]
             mark = "OK" if pred == expected else "!!"
             top3 = sorted(res["sims"].items(), key=lambda kv: kv[1], reverse=True)[:3]
@@ -210,34 +243,32 @@ class FewShotExperiment:
         print(f"[Score] Exact-match accuracy: {ok}/{len(tests)} = {acc:.1%}")
         return acc
 
-
     def test_multi(self, per_label_threshold: float, texts: Optional[Iterable] = None) -> None:
         texts = list(texts) if texts is not None else [t for t, _ in self.tests]  # si tests=(text, y)
         ml_thr = per_label_threshold
         print("\n===== Test multi-label (classify_one_multi) =====")
         for text in texts:
-            res = fews_emb.classify_one_multi(text, self._protos, per_label_threshold=ml_thr,embedder = self.embedder,model_name = self.model_name)
+            res = fews_emb.classify_one_multi(
+                text,
+                self._protos,
+                per_label_threshold=ml_thr,
+                embedder=self.embedder,
+                model_name=self.model_name
+            )
             order = sorted(self._protos.keys(), key=lambda k: res["sims"][k], reverse=True)
             top3 = [(k, res["sims"][k]) for k in order[:3]]
             print("- " + textwrap.fill(text, width=88))
-            print(f"  → labels={res['labels']} | top3=" + ", ".join(f"{k}:{v:.2f}" for k, v in top3))
+            print(f"  → labels={res['labels']} | top3=" +
+                  ", ".join(f"{k}:{v:.2f}" for k, v in top3))
 
 
 
 
-    # ---------- Orchestration « une config » (tout-en-un, avec prints) ----------
+    # ---------- Orchestration « une config » ----------
     def run_once(self,
                  *,
                  mono_label: bool = True,
                  multi_label: bool = False,
-                 allow_defs: bool = False,
-                 label_defs: Optional[Dict[str, str]] = None,
-                 model_defs: str = "mistral:7b-instruct",
-                 max_terms_defs: int = 10,
-                 max_pos_examples_defs: int = 12,
-                 max_neg_examples_defs: int = 10,
-                 temperature_defs: float = 0.0,
-                 seed_defs: Optional[int] = 42,
                  alpha_def: float | None = None,
                  alpha_base: float = 0.30,
                  alpha_max_extra: float = 0.60,
@@ -247,13 +278,7 @@ class FewShotExperiment:
                  thr_bounds: Tuple[float, float] = (0.15, 0.60),
                  mar_bounds: Tuple[float, float] = (0.01, 0.15),
                  multi_label_floor: float = 0.40) -> Tuple[float, float, Optional[float]]:
-        # defs
-        self.set_definitions(
-            allow_defs=allow_defs, label_defs=label_defs,
-            model_defs=model_defs, max_terms_defs=max_terms_defs,
-            max_pos_examples_defs=max_pos_examples_defs, max_neg_examples_defs=max_neg_examples_defs,
-            temperature_defs=temperature_defs, seed_defs=seed_defs
-        )
+
         # protos
         self.build_prototypes(
             alpha_def=alpha_def, alpha_base=alpha_base,
@@ -286,8 +311,9 @@ class FewShotExperiment:
               multi_label: bool = False,
               multi_label_floor: float = 0.40) -> List[Dict]:
         defs_kwargs = defs_kwargs or {}
-        rows = []
-        # Les defs changent rarement : on les fixe avant
+        self.rows = []
+
+        # Les defs changent rarement : on les fixe avant (éventuel override)
         self.set_definitions(**defs_kwargs)
 
         for avals in product(*grid_alpha.values()):
@@ -301,8 +327,14 @@ class FewShotExperiment:
                 print(f"[Config/Calib] {cparams}")
                 thr, mar = self.calibrate(**cparams)
 
-                row = {"thr": round(thr, 4), "mar": round(mar, 4),
-                       **aparams, **cparams}
+                row = {
+                    "model_name": self.model_name,
+                    "defs": self._defs_key,
+                    "thr": round(thr, 4),
+                    "mar": round(mar, 4),
+                    **aparams,
+                    **cparams
+                }
 
                 if mono_label and self.tests:
                     acc = self.test_mono(threshold=thr, margin=mar)
@@ -313,15 +345,16 @@ class FewShotExperiment:
                     self.test_multi(per_label_threshold=ml_thr)
                     row["ml_thr_used"] = round(float(ml_thr), 4)
 
-                rows.append(row)
-        return rows
+                self.rows.append(row)
+        return self.rows
 
-    
+
+
     def get_prototypes(self,
-                *,
-                which: str = "best",            # "best" | "last" | "index" | "params"
-                index: Optional[int] = None,
-                params: Optional[Dict] = None) -> Tuple[Dict[str, np.ndarray], Optional[float], Optional[float], Dict]:
+                       *,
+                       which: str = "best",            # "best" | "last" | "index" | "params"
+                       index: Optional[int] = None,
+                       params: Optional[Dict] = None) -> Tuple[Dict[str, np.ndarray], Optional[float], Optional[float], Dict]:
         """
         Récupère les prototypes + (thr, mar) + la config choisie depuis self.rows,
         reconstruit si nécessaire, et affiche un résumé.
@@ -342,7 +375,7 @@ class FewShotExperiment:
                 }
             return {}, None, None, {}
 
-        # --- résumé global (tes prints) ---
+        # --- résumé global ---
         print(f"\n[Sweep] {len(rows)} configurations testées.")
         col_order = [
             "model_name", "defs",
@@ -376,13 +409,14 @@ class FewShotExperiment:
             # première ligne qui matche toutes les clés/valeurs de params
             for r in rows:
                 if all(r.get(k) == v for k, v in params.items()):
-                    pick = r; break
+                    pick = r
+                    break
             if pick is None:
                 raise ValueError(f"Aucune config ne matche params={params}.")
         else:
             raise ValueError("which doit être parmi {'best','last','index','params'}.")
 
-        # --- print de la meilleure/choisie (tes prints) ---
+        # --- print de la meilleure/choisie ---
         print(f"[Sweep] Config choisie -> {_fmt_row(pick)}")
 
         # --- si le modèle a changé, on switch proprement ---
@@ -420,6 +454,8 @@ class FewShotExperiment:
 
         if sort_by is not None:
             rows = sorted(self.rows, key=lambda r: r.get(sort_by, float("-inf")), reverse=descending)
+        else:
+            rows = self.rows
 
         col_order = [
             "model_name", "defs",
@@ -427,6 +463,7 @@ class FewShotExperiment:
             "perc", "class_balanced", "thr_bounds", "mar_bounds",
             "thr", "mar", "acc_mono", "ml_thr_used"
         ]
+        print("\n=== Résultats complets du sweep ===\n")
         for i, r in enumerate(rows):
             line = " | ".join(f"{k}={r[k]}" for k in col_order if k in r)
             print(f"[{i:03d}] {line}")

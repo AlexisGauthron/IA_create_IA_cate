@@ -24,11 +24,12 @@ def definition_labels_completes(
 
     Utilise Ollama si disponible, sinon un fallback local basé sur les mots discriminants.
     """
-
     import src.fonctions.clean_tokeniser as clean_tok
 
     rng = random.Random(seed or 1234)
     labels = list(shots.keys())
+
+    
 
     # Nettoyage des exemples
     clean_shots = {lbl: clean_tok._clean_list(exs) for lbl, exs in shots.items()}
@@ -43,6 +44,7 @@ def definition_labels_completes(
         per_label_counts[lbl] = c
         total_counts.update(c)
 
+    
 
     # --- Fonction interne : top termes discriminants
     def _top_terms(lbl: str, k: int = 30) -> List[str]:

@@ -1,51 +1,201 @@
-text,label
-Résolution bug logiciel,Support Technique
-Assistance imprimante,Support Technique
-Diagnostic réseau,Support Technique
-Support matériel,Support Technique
-Réinitialisation mot de passe,Support Technique
-Création facture client,Facturation
-Remboursement TVA,Facturation
-Relance paiement,Facturation
-Émission note de crédit,Facturation
-Suivi encaissement,Facturation
-Demande congé annuel,Ressources Humaines
-Suivi formation,Ressources Humaines
-Entretien annuel,Ressources Humaines
-Recrutement interne,Ressources Humaines
-Gestion absences,Ressources Humaines
-Planification livraison,Logistique
-Suivi colis,Logistique
-Gestion stock entrepôt,Logistique
-Organisation transport,Logistique
-Réception marchandise,Logistique
-Prospection client,Commercial
-Négociation contrat,Commercial
-Devis personnalisé,Commercial
-Suivi portefeuille,Commercial
-Fidélisation client,Commercial
-Campagne réseaux sociaux,Marketing
-Emailing promotionnel,Marketing
-Analyse trafic site web,Marketing
-Création visuel publicitaire,Marketing
-Gestion newsletter,Marketing
-Rédaction contrat,Juridique
-Veille légale,Juridique
-Analyse conformité,Juridique
-Gestion litiges,Juridique
-Signature accord,Juridique
-Déploiement application,IT / Développement
-Correction bug code,IT / Développement
-Mise à jour base de données,IT / Développement
-Développement API,IT / Développement
-Test logiciel,IT / Développement
-Organisation réunion,Administration
-Classement dossiers,Administration
-Gestion agenda,Administration
-Archivage documents,Administration
-Saisie courrier,Administration
-Réponse email client,Service Client
-Prise d'appel,Service Client
-Traitement réclamation,Service Client
-Suivi satisfaction,Service Client
-Conseil produit,Service Client
+label,text
+Support Technique,prise en main
+Support Technique,télémaintenance
+Support Technique,ticket incident
+Support Technique,erreur système
+Support Technique,connexion VPN
+Support Technique,accès bloqué
+Support Technique,dépannage à distance
+Support Technique,supervision applicative
+Support Technique,escalade technique
+Support Technique,incident critique
+Support Technique,relance support
+Support Technique,incident réseau
+Support Technique,analyse de logs
+Support Technique,intervention sur site
+Support Technique,retour SAV
+Support Technique,prise en charge technique
+Support Technique,diagnostic matériel
+Support Technique,hotline technique
+Support Technique,assistance applicative
+Support Technique,incident applicatif
+Facturation,facture fournisseur
+Facturation,avoir
+Facturation,note de frais
+Facturation,échéancier
+Facturation,facturation récurrente
+Facturation,retard de paiement
+Facturation,numéro de facture
+Facturation,relance client
+Facturation,bordereau de règlement
+Facturation,preuve de paiement
+Facturation,condition de paiement
+Facturation,mode de règlement
+Facturation,échéance facture
+Facturation,validation facture
+Facturation,suivi des encaissements
+Facturation,erreur de facturation
+Facturation,litige de facturation
+Facturation,référence de facture
+Facturation,compte client
+Facturation,ordre de virement
+Ressources Humaines,entretien annuel
+Ressources Humaines,gestion des talents
+Ressources Humaines,onboarding digital
+Ressources Humaines,politique salariale
+Ressources Humaines,gestion du temps
+Ressources Humaines,dossier salarié
+Ressources Humaines,entretien de sortie
+Ressources Humaines,bilan de compétences
+Ressources Humaines,plan de formation
+Ressources Humaines,tableau des effectifs
+Ressources Humaines,gestion des présences
+Ressources Humaines,suivi des objectifs
+Ressources Humaines,gestion des primes
+Ressources Humaines,conflit interne
+Ressources Humaines,communication interne
+Ressources Humaines,gestion des carrières
+Ressources Humaines,politique RH
+Ressources Humaines,process de recrutement
+Ressources Humaines,mutuelle
+Ressources Humaines,gestion des notes de frais
+Logistique,chaîne logistique
+Logistique,numéro de suivi
+Logistique,préparation de commande
+Logistique,rupture de stock
+Logistique,planning transport
+Logistique,déchargement
+Logistique,tracking colis
+Logistique,optimisation des tournées
+Logistique,planning quai
+Logistique,gestion des stocks
+Logistique,réception marchandise
+Logistique,référencement produit
+Logistique,gestion des palettes
+Logistique,flux d approvisionnement
+Logistique,ordre d expédition
+Logistique,tour de livraison
+Logistique,réception colis
+Logistique,gestion entrepôt
+Logistique,plan de transport
+Logistique,organisation des tournées
+Commercial,relance commerciale
+Commercial,pipeline de vente
+Commercial,opportunité
+Commercial,prise de rendez-vous
+Commercial,argumentaire
+Commercial,gestion des leads
+Commercial,démonstration produit
+Commercial,compte clé
+Commercial,négociation tarifaire
+Commercial,prévision des ventes
+Commercial,relance prospect
+Commercial,offre personnalisée
+Commercial,suivi des devis
+Commercial,plan d actions commercial
+Commercial,appel de prospection
+Commercial,segmentation clients
+Commercial,clôture de vente
+Commercial,suivi portefeuille client
+Commercial,présentation commerciale
+Commercial,objectif de vente
+Marketing,plan média
+Marketing,landing page
+Marketing,stratégie digitale
+Marketing,test A/B
+Marketing,taux de clic
+Marketing,campagne display
+Marketing,persona marketing
+Marketing,calendrier éditorial
+Marketing,marketing automation
+Marketing,performance campagne
+Marketing,tunnel de conversion
+Marketing,plan de communication
+Marketing,référencement naturel
+Marketing,storytelling
+Marketing,contenu sponsorisé
+Marketing,rapport de campagne
+Marketing,analyse d audience
+Marketing,retombées presse
+Marketing,veille concurrentielle
+Marketing,positionnement de marque
+Informatique / Développement,javascript
+Informatique / Développement,typescript
+Informatique / Développement,csharp
+Informatique / Développement,docker
+Informatique / Développement,CI/CD
+Informatique / Développement,tests unitaires
+Informatique / Développement,orchestration
+Informatique / Développement,pipeline de déploiement
+Informatique / Développement,revue de code
+Informatique / Développement,script shell
+Informatique / Développement,gestion des logs
+Informatique / Développement,monitoring
+Informatique / Développement,refactorisation
+Informatique / Développement,architecture microservices
+Informatique / Développement,optimisation de code
+Informatique / Développement,gestion des dépendances
+Informatique / Développement,gestion des environnements
+Informatique / Développement,infra as code
+Informatique / Développement,test d intégration
+Informatique / Développement,gestion des branches
+Finance / Comptabilité,compte de résultat
+Finance / Comptabilité,plan de trésorerie
+Finance / Comptabilité,analyse de marge
+Finance / Comptabilité,flux de trésorerie
+Finance / Comptabilité,tableau de bord financier
+Finance / Comptabilité,prévision budgétaire
+Finance / Comptabilité,provision
+Finance / Comptabilité,écriture comptable
+Finance / Comptabilité,pointage bancaire
+Finance / Comptabilité,rapprochement bancaire
+Finance / Comptabilité,plan de financement
+Finance / Comptabilité,analyse de coûts
+Finance / Comptabilité,simulation financière
+Finance / Comptabilité,contrôle de gestion
+Finance / Comptabilité,clôture comptable
+Finance / Comptabilité,suivi des charges
+Finance / Comptabilité,analyse des écarts
+Finance / Comptabilité,plan comptable
+Finance / Comptabilité,tableau d amortissement
+Finance / Comptabilité,gestion des immobilisations
+Juridique / Conformité,contrôle interne
+Juridique / Conformité,veille réglementaire
+Juridique / Conformité,charte de confidentialité
+Juridique / Conformité,conditions générales
+Juridique / Conformité,procédure disciplinaire
+Juridique / Conformité,contrôle de conformité
+Juridique / Conformité,déclaration CNIL
+Juridique / Conformité,contrat de licence
+Juridique / Conformité,protection des données
+Juridique / Conformité,registre des traitements
+Juridique / Conformité,politique de sécurité
+Juridique / Conformité,revue contractuelle
+Juridique / Conformité,conflit juridique
+Juridique / Conformité,procédure judiciaire
+Juridique / Conformité,accord de confidentialité
+Juridique / Conformité,conseil juridique
+Juridique / Conformité,contrôle réglementaire
+Juridique / Conformité,conformité RGPD
+Juridique / Conformité,revue de clauses
+Juridique / Conformité,rapport de conformité
+Service Client / Relation Client,centre d appel
+Service Client / Relation Client,script d appel
+Service Client / Relation Client,gestion des demandes
+Service Client / Relation Client,retour client
+Service Client / Relation Client,délai de réponse
+Service Client / Relation Client,expérience client
+Service Client / Relation Client,réponse standardisée
+Service Client / Relation Client,prise en charge
+Service Client / Relation Client,résolution au premier contact
+Service Client / Relation Client,taux de satisfaction
+Service Client / Relation Client,gestion des retours
+Service Client / Relation Client,suivi des réclamations
+Service Client / Relation Client,question fréquente
+Service Client / Relation Client,base de connaissances
+Service Client / Relation Client,traitement des demandes
+Service Client / Relation Client,gestion des priorités
+Service Client / Relation Client,relance client
+Service Client / Relation Client,suivi post-vente
+Service Client / Relation Client,écoute client
+Service Client / Relation Client,qualité de service
