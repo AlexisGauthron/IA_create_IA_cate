@@ -1,0 +1,357 @@
+{
+  "context": {
+    "business_description": "Ce dataset prédit la survie des passagers lors d'un naufrage maritime en utilisant des caractéristiques démographiques et de voyage. Les données incluent des informations sur la classe, le genre, l'âge, et le point d'embarquement.",
+    "metric": "f1_macro",
+    "_llm_meta": {
+      "business_description_confidence": 0.8,
+      "metric_confidence": 0.8
+    }
+  },
+  "basic_stats": {
+    "n_rows": 891,
+    "missing_cell_ratio": 0.081
+  },
+  "target": {
+    "name": "Survived",
+    "problem_type": "binary_classification",
+    "class_counts": {
+      "0": 549,
+      "1": 342
+    },
+    "positive_class": "0"
+  },
+  "features": [
+    {
+      "name": "PassengerId",
+      "inferred_type": "numeric",
+      "n_unique": 891,
+      "example_values": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "numeric_stats": {
+        "mean": 446.0,
+        "std": 257.3538,
+        "min": 1.0,
+        "max": 891.0,
+        "skewness": 0.0
+      },
+      "flags": [
+        "ID_LIKE"
+      ],
+      "fe_hints": [
+        "do_not_use_as_raw_feature",
+        "candidate_for_scaling"
+      ],
+      "feature_description": "Identifiant unique du passager.",
+      "_llm_meta": {
+        "feature_description_confidence": 1.0
+      }
+    },
+    {
+      "name": "Pclass",
+      "inferred_type": "numeric",
+      "n_unique": 3,
+      "example_values": [
+        "3",
+        "1",
+        "2"
+      ],
+      "numeric_stats": {
+        "mean": 2.3086,
+        "std": 0.8361,
+        "min": 1.0,
+        "max": 3.0,
+        "skewness": -0.6305
+      },
+      "fe_hints": [
+        "candidate_for_scaling"
+      ],
+      "feature_description": "Classe de voyage du passager (1 = luxe, 2 = milieu, 3 = bas de gamme).",
+      "_llm_meta": {
+        "feature_description_confidence": 0.9
+      }
+    },
+    {
+      "name": "Name",
+      "inferred_type": "text",
+      "n_unique": 891,
+      "example_values": [
+        "Braund, Mr. Owen Harris",
+        "Cumings, Mrs. John Bradley (Florence Briggs Thayer)",
+        "Heikkinen, Miss. Laina",
+        "Futrelle, Mrs. Jacques Heath (Lily May Peel)",
+        "Allen, Mr. William Henry"
+      ],
+      "text_stats": {
+        "avg_char_length": 26.9652,
+        "avg_token_length": 4.0673,
+        "min_char_length": 12,
+        "max_char_length": 82
+      },
+      "flags": [
+        "ID_LIKE"
+      ],
+      "fe_hints": [
+        "do_not_use_as_raw_feature",
+        "use_text_embeddings",
+        "tfidf_or_ngram_features"
+      ],
+      "feature_description": "Nom complet du passager.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.7
+      }
+    },
+    {
+      "name": "Sex",
+      "inferred_type": "categorical_low",
+      "n_unique": 2,
+      "example_values": [
+        "male",
+        "female"
+      ],
+      "categorical_stats": {
+        "top_values": [
+          {
+            "value": "male",
+            "count": 577,
+            "freq": 0.6476
+          },
+          {
+            "value": "female",
+            "count": 314,
+            "freq": 0.3524
+          }
+        ]
+      },
+      "fe_hints": [
+        "candidate_for_one_hot"
+      ],
+      "feature_description": "Genre du passager (homme ou femme).",
+      "_llm_meta": {
+        "feature_description_confidence": 1.0
+      }
+    },
+    {
+      "name": "Age",
+      "inferred_type": "numeric",
+      "missing_rate": 0.1987,
+      "n_unique": 88,
+      "example_values": [
+        "22.0",
+        "38.0",
+        "26.0",
+        "35.0",
+        "54.0"
+      ],
+      "numeric_stats": {
+        "mean": 29.6991,
+        "std": 14.5265,
+        "min": 0.42,
+        "max": 80.0,
+        "skewness": 0.3891
+      },
+      "fe_hints": [
+        "numeric_imputation",
+        "candidate_for_scaling"
+      ],
+      "feature_description": "Âge du passager.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.9
+      }
+    },
+    {
+      "name": "SibSp",
+      "inferred_type": "numeric",
+      "n_unique": 7,
+      "example_values": [
+        "1",
+        "0",
+        "3",
+        "4",
+        "2"
+      ],
+      "numeric_stats": {
+        "mean": 0.523,
+        "std": 1.1027,
+        "min": 0.0,
+        "max": 8.0,
+        "skewness": 3.6954
+      },
+      "fe_hints": [
+        "consider_non_linear_transform",
+        "candidate_for_scaling"
+      ],
+      "feature_description": "Nombre de frères, soeurs, conjoints à bord.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.9
+      }
+    },
+    {
+      "name": "Parch",
+      "inferred_type": "numeric",
+      "n_unique": 7,
+      "example_values": [
+        "0",
+        "1",
+        "2",
+        "5",
+        "3"
+      ],
+      "numeric_stats": {
+        "mean": 0.3816,
+        "std": 0.8061,
+        "min": 0.0,
+        "max": 6.0,
+        "skewness": 2.7491
+      },
+      "fe_hints": [
+        "consider_non_linear_transform",
+        "candidate_for_scaling"
+      ],
+      "feature_description": "Nombre de parents ou enfants à bord.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.9
+      }
+    },
+    {
+      "name": "Ticket",
+      "inferred_type": "text",
+      "n_unique": 681,
+      "example_values": [
+        "A/5 21171",
+        "PC 17599",
+        "STON/O2. 3101282",
+        "113803",
+        "373450"
+      ],
+      "text_stats": {
+        "avg_char_length": 6.7508,
+        "avg_token_length": 1.2682,
+        "min_char_length": 3,
+        "max_char_length": 18
+      },
+      "fe_hints": [
+        "use_text_embeddings",
+        "tfidf_or_ngram_features"
+      ],
+      "feature_description": "Numéro de ticket du voyage.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.7
+      }
+    },
+    {
+      "name": "Fare",
+      "inferred_type": "numeric",
+      "n_unique": 248,
+      "example_values": [
+        "7.25",
+        "71.2833",
+        "7.925",
+        "53.1",
+        "8.05"
+      ],
+      "numeric_stats": {
+        "mean": 32.2042,
+        "std": 49.6934,
+        "min": 0.0,
+        "max": 512.3292,
+        "skewness": 4.7873
+      },
+      "fe_hints": [
+        "consider_non_linear_transform",
+        "candidate_for_scaling"
+      ],
+      "feature_description": "Tarif de passage payé par le passager.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.9
+      }
+    },
+    {
+      "name": "Cabin",
+      "inferred_type": "categorical_high",
+      "missing_rate": 0.771,
+      "n_unique": 147,
+      "example_values": [
+        "C85",
+        "C123",
+        "E46",
+        "G6",
+        "C103"
+      ],
+      "categorical_stats": {
+        "n_rare_levels": 147,
+        "top_values": [
+          {
+            "value": "B96 B98",
+            "count": 4,
+            "freq": 0.0045
+          },
+          {
+            "value": "G6",
+            "count": 4,
+            "freq": 0.0045
+          },
+          {
+            "value": "C23 C25 C27",
+            "count": 4,
+            "freq": 0.0045
+          }
+        ]
+      },
+      "flags": [
+        "HIGH_CARDINALITY"
+      ],
+      "fe_hints": [
+        "high_missing_rate",
+        "use_target_encoding_or_hashing",
+        "categorical_imputation"
+      ],
+      "feature_description": "Numéro de cabine où se trouvait le passager.",
+      "_llm_meta": {
+        "feature_description_confidence": 0.7
+      }
+    },
+    {
+      "name": "Embarked",
+      "inferred_type": "categorical_low",
+      "missing_rate": 0.0022,
+      "n_unique": 3,
+      "example_values": [
+        "S",
+        "C",
+        "Q"
+      ],
+      "categorical_stats": {
+        "top_values": [
+          {
+            "value": "S",
+            "count": 644,
+            "freq": 0.7228
+          },
+          {
+            "value": "C",
+            "count": 168,
+            "freq": 0.1886
+          },
+          {
+            "value": "Q",
+            "count": 77,
+            "freq": 0.0864
+          }
+        ]
+      },
+      "fe_hints": [
+        "candidate_for_one_hot",
+        "categorical_imputation"
+      ],
+      "feature_description": "Point d'embarquement du passager (C, Q, S).",
+      "_llm_meta": {
+        "feature_description_confidence": 0.9
+      }
+    }
+  ]
+}

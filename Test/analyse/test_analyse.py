@@ -2,7 +2,7 @@ import sys
 import os
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
-src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
@@ -20,6 +20,7 @@ os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 
 from typing import Dict, List, Tuple, Optional
 import numpy as np
+import json 
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -34,14 +35,29 @@ os.environ["MKL_NUM_THREADS"] = "1"
 
 import src.Data.load_datasets as an
 
-Nom_Projet = "cate_metier"
-print("[INFO] Chargement Dataset\n")
-# Chargement dataset
-df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{Nom_Projet}")
+# Nom_Projet = ["cate_metier","avis_client","Titanic_Kaggle","Verbatims"]
+# Label_Projet = ["label","label","Survived","Categorie"]
 
-import src.analyse_donne.analyse_categorisation as analyse_cate
-import src.fonctions.affichage_console as af_c
+Nom_Projet = ["Verbatims"]
+Label_Projet = ["Categorie"]
 
-clarif = analyse_cate.clarifier_objectif_cible(df_train,"label")
-af_c.afficher_clarif(clarif)
+# Nom_Projet = ["Titanic_Kaggle"]
+# Label_Projet = ["Survived"]
+
+for (nom,label) in zip(Nom_Projet,Label_Projet):
+
+    print("[INFO] Chargement Dataset\n")
+    # Chargement dataset
+    try:
+        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}")
+    except:
+        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}", sep=";")
+
+
+    from src.analyse.analyse import analyse
+
+    analyse_propre = analyse(df_train,label,nom,print_json=True,model_metier="deepseek-r1:8b")
+    
+
+        
 

@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 
 import src.autoML_supervise.all_autoML as auto_all
 import src.Data.load_datasets as an
-import src.analyse_donne.format_entrainement as format_ent
+import src.fonctions.format_entrainement as format_ent
 
 
 def pipeline_create_model(Nom_Projet : str, target_col, model = ["flaml","autogluon","tpot","h2o"]):
