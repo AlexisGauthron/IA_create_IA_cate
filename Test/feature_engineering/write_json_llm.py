@@ -34,28 +34,26 @@ Label_Projet = ["label","label","Survived","Categorie"]
 
 all_analyse = []
 
-import src.Data.load_datasets as an
-
 for (nom,label) in zip(Nom_Projet,Label_Projet):
 
     print("[INFO] Chargement Dataset\n")
-    print("[INFO] Chargement Dataset\n")
-    # Chargement dataset
-    try:
-        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}")
-    except:
-        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}", sep=";")
-
     analyse = load_json(f"Test/analyse/json/all/test_analyse_metier_report_{nom}.json")
 
-    from src.features_engineering.fonctions_fe.generate_candidate import generate_feature_space
-    candidates = generate_feature_space(analyse)
+    compact_payload = compact_llm_snapshot_payload(
+        payload=analyse,
+        max_example_values=3,
+        max_top_values=3,
+        float_ndigits=4,
+        feature_engineering = True
+    )
 
-    for c in candidates:
-        print(c)
+    import src.analyse.statistiques.write_json as write_json
+    write_json.save_report_to_json(
+        report=compact_payload,
+        output_path=f"Test/feature_engineering/json/test_analyse_metier_report_{nom}.json",
+    )
 
-    from src.features_engineering.fonctions_fe.execute_candidate import apply_feature_engineering
-    transformed_df = apply_feature_engineering(df_train, analyse)
 
-    print("Tableau",transformed_df)
+
+
 

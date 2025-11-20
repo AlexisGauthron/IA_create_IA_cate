@@ -9,11 +9,14 @@
   },
   "basic_stats": {
     "n_rows": 891,
+    "n_features": 11,
     "missing_cell_ratio": 0.081
   },
   "target": {
     "name": "Survived",
     "problem_type": "binary_classification",
+    "n_unique": 2,
+    "missing_rate": 0.0,
     "class_counts": {
       "0": 549,
       "1": 342

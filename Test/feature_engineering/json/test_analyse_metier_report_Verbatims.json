@@ -9,11 +9,14 @@
   },
   "basic_stats": {
     "n_rows": 2261,
+    "n_features": 3,
     "missing_cell_ratio": 0.0001
   },
   "target": {
     "name": "Categorie",
     "problem_type": "multiclass_classification",
+    "n_unique": 18,
+    "missing_rate": 0.0,
     "class_counts": {
       "Collectif": 492,
       "Travail": 372,

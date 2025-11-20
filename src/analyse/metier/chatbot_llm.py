@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Union
 import json
 
-from src.helper.client_llm import OllamaClient
+from src.helper.ollama_llm import OllamaClient
 import src.analyse.metier.prompt_metier as prompt_metier
 from src.analyse.helper.helper_json_safe import make_json_safe
 

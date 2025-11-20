@@ -9,11 +9,14 @@
   },
   "basic_stats": {
     "n_rows": 20,
+    "n_features": 1,
     "missing_cell_ratio": 0.0
   },
   "target": {
     "name": "label",
     "problem_type": "multiclass_classification",
+    "n_unique": 3,
+    "missing_rate": 0.0,
     "class_counts": {
       "negatif": 8,
       "positif": 6,

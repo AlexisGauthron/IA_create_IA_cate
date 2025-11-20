@@ -62,6 +62,7 @@ def compact_llm_snapshot_payload(
     # n_features & co sont dérivables depuis features → on les enlève
     keep_bs = [
         "n_rows",
+        "n_features",
         "missing_cell_ratio",
     ]
     data["basic_stats"] = {k: bs[k] for k in keep_bs if k in bs}
@@ -75,15 +76,14 @@ def compact_llm_snapshot_payload(
         target.pop("pandas_dtype", None)
         target.pop("inferred_target_type", None)
         target.pop("n_rows", None)
-        target.pop("n_unique", None)
         target.pop("most_frequent_classes", None)
         target.pop("imbalance_ratio", None)
         target.pop("notes", None)
         target.pop("is_imbalanced", None)
 
         # missing_rate = utile si > 0, sinon on le supprime
-        if target.get("missing_rate", 0.0) == 0.0:
-            target.pop("missing_rate", None)
+        # if target.get("missing_rate", 0.0) == 0.0:
+        #     target.pop("missing_rate", None)
 
         # On garde seulement class_counts et on supprime class_proportions
         target.pop("class_proportions", None)

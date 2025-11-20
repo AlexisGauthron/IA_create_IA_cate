@@ -24,7 +24,7 @@ import numpy as np
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-from src.features_engineering.pipeline import LLMFeatureEngineeringPipeline
+from src.features_engineering.LLM_analyse_fe.pipeline import LLMFeatureEngineeringPipeline
 from src.analyse.statistiques.config import FEAnalysisConfig
 import pandas as pd
 
@@ -33,60 +33,30 @@ import src.Data.load_datasets as an
 
 import requests
 
-def ollama_mistral_llm(
-    prompt: str,
-    model: str = "mistral",
-    base_url: str = "http://localhost:11434",
-    timeout: int = 120,
-) -> str:
-    """
-    Appelle le modèle Mistral via Ollama et renvoie uniquement le texte généré.
+from src.helper.ollama_llm import OllamaClient
 
-    Paramètres
-    ----------
-    prompt : str
-        Le texte à envoyer au modèle.
-    model : str
-        Nom du modèle Ollama (ex: "mistral", "mistral:instruct", "mistral-nemo", etc.).
-    base_url : str
-        URL de base du serveur Ollama (par défaut localhost).
-    timeout : int
-        Timeout en secondes pour la requête HTTP.
-
-    Retour
-    ------
-    response_text : str
-        Le contenu texte renvoyé par le modèle (champ `message.content`).
-    """
-    url = f"{base_url}/api/chat"
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
-        "stream": False,  # on veut tout le texte d'un coup
-        "format": "json"
-    }
-
-    resp = requests.post(url, json=payload, timeout=timeout)
-    resp.raise_for_status()
-    data = resp.json()
-
-    # Format de réponse typique d'Ollama /api/chat :
-    # {
-    #   "model": "...",
-    #   "created_at": "...",
-    #   "message": {"role": "assistant", "content": "..."},
-    #   ...
-    # }
-    return data["message"]["content"]
-
+# On crée un client Ollama configuré comme on veut
+ollama_client = OllamaClient(
+    model="gpt-4.1-mini",                   # ou "llama3.1:8b", "deepseek-r1:8b", etc.
+    base_url="http://localhost:11434/api/chat",
+    provider = "openai",
+    temperature=0,
+    max_tokens=8024,
+    format_llm="json",                     # équivalent à "format": "json" dans ta première fonction
+)
 
 
 def my_llm_func(prompt: str) -> str:
-    return ollama_mistral_llm(prompt, model="mistral:latest")  # ou "mistral:instruct"
-
-
+    """
+    Wrapper simple pour adapter OllamaClient à l'interface attendue par la pipeline :
+    une fonction qui prend un `prompt: str` et renvoie `str`.
+    """
+    messages = [
+        # Tu peux ajouter un message system si tu veux contrôler le style :
+        # {"role": "system", "content": "Tu es un assistant expert en feature engineering."},
+        {"role": "user", "content": prompt},
+    ]
+    return ollama_client.chat(messages)
 
 
 
@@ -94,25 +64,20 @@ def my_llm_func(prompt: str) -> str:
 Nom_Projet = ["cate_metier","avis_client","Titanic_Kaggle","Verbatims"]
 Label_Projet = ["label","label","Survived","Categorie"]
 
-Nom_Projet = ["Titanic_Kaggle"]
-Label_Projet = ["Survived"]
+# Nom_Projet = ["Titanic_Kaggle"]
+# Label_Projet = ["Survived"]
 
 for (nom,label) in zip(Nom_Projet,Label_Projet):
 
+    from src.features_engineering.helper.lire_json import load_json
     print("[INFO] Chargement Dataset\n")
-    # Chargement dataset
-    try:
-        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}")
-    except:
-        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}", sep=";")
-
+    analyse = load_json(f"Test/feature_engineering/json/test_analyse_metier_report_{nom}.json")
 
     config = FEAnalysisConfig()
     pipeline = LLMFeatureEngineeringPipeline(config=config)
 
     result = pipeline.analyse_and_plan(
-        df_train,
-        target_cols=label,
+        stats=analyse,
         llm_func=my_llm_func,
         user_description="Dataset de tickets clients avec catégorie cible.",
         extra_instructions="Privilégie des features simples et interprétables.",
@@ -130,8 +95,11 @@ for (nom,label) in zip(Nom_Projet,Label_Projet):
     print("\nFeatures proposées :")
     for spec in plan.features_plan:
         print(f" - {spec.name} ({spec.type}) à partir de {spec.inputs} -> {spec.reason}")
+        print(f"Transformation : {spec.transformation}\n Descriptions : {spec.descriptions_transformations}\n")
 
     print("\nQuestions à poser à l'utilisateur :")
     for q in plan.questions_for_user:
         print(" ?", q)
+
+    print(f"\n[DEBUG] Result : {plan}\n\n")
 
