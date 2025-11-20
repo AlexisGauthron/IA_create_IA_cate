@@ -56,7 +56,7 @@ for (nom,label) in zip(Nom_Projet,Label_Projet):
 
     from src.analyse.analyse import analyse
 
-    analyse_propre = analyse(df_train,label,nom,print_json=True,model_metier="deepseek-r1:8b")
+    analyse_propre = analyse(df_train,label,nom,print_json=True,chemin_json = "test",model_metier="mistral:7b-instruct")
     
 
         

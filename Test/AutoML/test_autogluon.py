@@ -16,7 +16,7 @@ import src.Data.load_datasets as an
 if __name__ == "__main__":
 
     # Chargement_modele
-    Nom_Projet = "breast_cancer"
+    Nom_Projet = "Titanic_Kaggle"
 
     Nom_dossier = f"Modeles/python/{Nom_Projet}"
     dossier = Path(Nom_dossier)          # remplace par ton chemin

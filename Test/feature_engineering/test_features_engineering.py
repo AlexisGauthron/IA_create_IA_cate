@@ -39,7 +39,6 @@ import src.Data.load_datasets as an
 for (nom,label) in zip(Nom_Projet,Label_Projet):
 
     print("[INFO] Chargement Dataset\n")
-    print("[INFO] Chargement Dataset\n")
     # Chargement dataset
     try:
         df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{nom}")

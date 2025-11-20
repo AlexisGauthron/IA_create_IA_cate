@@ -16,6 +16,7 @@ def analyse(df: pd.DataFrame,
             target_cols: Union[str, Sequence[str]],
             nom : str,
             print_json : bool = False,
+            chemin_json : str = "json",
             model_metier: str = "deepseek-r1:8b"):
 
     reports = report.analyze_dataset_for_fe(df, target_cols=target_cols, print_report=True)
@@ -25,7 +26,7 @@ def analyse(df: pd.DataFrame,
     if print_json:
         write_json.save_report_to_json(
             report=reports_stat,
-            output_path=f"Test/analyse/json/stats/test_analyse_metier_report_{nom}.json",
+            output_path=f"Test/analyse/{chemin_json}/stats/test_analyse_metier_report_{nom}.json",
         )
 
     compact_payload = compact_llm_snapshot_payload(
@@ -67,7 +68,7 @@ def analyse(df: pd.DataFrame,
         # )
         write_json.save_report_to_json(
             report=all_payload_long,
-            output_path=f"Test/analyse/json/all/test_analyse_metier_report_{nom}.json",
+            output_path=f"Test/analyse/{chemin_json}/all/test_analyse_metier_report_{nom}.json",
         )
 
     return all_payload_long

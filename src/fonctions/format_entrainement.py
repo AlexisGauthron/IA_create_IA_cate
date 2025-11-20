@@ -1,6 +1,8 @@
 from typing import Tuple
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from typing import Tuple, Optional, Union
+
 
 def df_to_list(
     df: pd.DataFrame,
@@ -62,7 +64,7 @@ def df_to_list_Kaggle(
     df_test: pd.DataFrame,
     target_col: str = "target",
     align_columns: bool = True,
-    fill_missing: float | int = 0,
+    fill_missing: Union[float, int] = 0
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     À partir de df_train et df_test déjà séparés, retourne X_train, X_test, y_train, y_test.

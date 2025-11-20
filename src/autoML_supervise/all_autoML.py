@@ -9,6 +9,7 @@ if src_path not in sys.path:
 
 import os, traceback, logging
 from datetime import datetime
+from typing import Tuple, Optional
 
 # --- utilitaires communs ------------------------------------------------------
 def _ensure_logger(self):
@@ -31,7 +32,7 @@ def _ensure_logger(self):
         self.errors = {}
     return logger
 
-def _record_error(self, name: str, exc: Exception, hint: str | None = None):
+def _record_error(self, name: str, exc: Exception, hint: Optional[str] = None):
     logger = _ensure_logger(self)
     tb = traceback.format_exc()
     logger.error("[%s] %s: %s\n%s", name, exc.__class__.__name__, str(exc), tb)
