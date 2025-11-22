@@ -13,6 +13,11 @@ from typing import Tuple, Optional
 
 # --- utilitaires communs ------------------------------------------------------
 def _ensure_logger(self):
+    print("\n")
+    print("#"*70)
+    print(f"[ERROR] Regarder dans les logs de Modeles")
+    print("#"*70)
+    print("\n")
     if getattr(self, "_logger", None):
         return self._logger
     log_dir = os.path.join(self.Nom_dossier, "logs")
@@ -151,13 +156,13 @@ class all_autoML:
         return self.score_tpot
 
 
-    def h2o(self):
+    def h2o(self,time_budget):
         logger = _ensure_logger(self)
         self.score_h2o = None
         h2o = None
         try:
             try:
-                import src.autoML_supervise.h2o as auto_h2o
+                import src.autoML_supervise.h2o.h2o as auto_h2o
             except ImportError as e:
                 _record_error(self, "h2o.import", e, "Vérifie le module wrapper src.autoML.h2o.")
                 return None
@@ -169,9 +174,18 @@ class all_autoML:
                 _record_error(self, "h2o.runtime", e, "Installe: `poetry add h2o` et assure-toi d’avoir Java (JRE/JDK).")
                 return None
 
-            H2o = auto_h2o.autoMl_h2o(self.Nom_dossier, self.X_train, self.X_test, self.y_train, self.y_test)
-            H2o.h2o()                           # entraînement (démarre aussi le cluster)
-            self.score_h2o = H2o.predict_test()
+            H2o = auto_h2o.autoMl_h2o(self.Nom_dossier, self.X_train, self.X_test, self.y_train, self.y_test, 
+                                      save_best_model=True,
+                                      save_features_csv=True,
+                                      save_features_json=False,
+                                      save_leaderboard=True,
+                                      save_mojo=False,
+                                      save_predictions=True,
+                                      save_varimp_csv=True,
+                                      save_varimp_plot=False)
+            
+            H2o.use_all(time_budget=time_budget)
+            print(f"[INFO] FIN Test AutoML -> {time_budget}")
 
         except Exception as e:
             # Détection de messages fréquents pour fournir un hint utile
@@ -184,7 +198,9 @@ class all_autoML:
             elif "connection" in msg or "port 54321" in msg:
                 hint = "Port occupé ou cluster existant. Ferme l’ancien cluster ou change le port."
             _record_error(self, "h2o", e, hint or "Vérifie Java, project_name, RAM et les permissions disque.")
+
         finally:
+            print("[DEBUG] FINISH\n\n")
             # On essaie de fermer proprement le cluster si on l'a importé
             try:
                 if h2o is not None and h2o.connection() is not None:
@@ -193,6 +209,17 @@ class all_autoML:
             except Exception:
                 pass
         return self.score_h2o
+
+
+    def h2o_all(self,time_zone=[10]):
+        score_h2o = []
+        for i in time_zone:
+            score_h2o.append(self.h2o(i))
+        
+        max_score_h2o = max(score_h2o)
+
+        return max_score_h2o
+
 
 
     def compare_all_predict(self,model):
@@ -218,6 +245,6 @@ class all_autoML:
         if "tpot" in model:
             self.tpot()
         if "h2o" in model:
-            self.h2o()
+            self.h2o_all()
 
         self.compare_all_predict(model)

@@ -9,7 +9,7 @@ if src_path not in sys.path:
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
-import src.autoML_supervise.h2o as auto_h2o
+import autoML_supervise.h2o.h2o as auto_h2o
 import src.Data.load_datasets as an
 
 

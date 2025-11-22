@@ -9,7 +9,7 @@ if src_path not in sys.path:
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
-import src.pipeline.pipeline_model as pipe
+import src.pipeline.pipeline_autoMl as pipe
 
 
 if __name__ == "__main__":
