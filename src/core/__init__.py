@@ -1,0 +1,2 @@
+# core
+"""Module core."""

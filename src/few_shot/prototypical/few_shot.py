@@ -160,7 +160,7 @@ class FewShot_prototypical:
     # ---------- Prototypes (avec tes prints) ----------
     def build_prototypes(self,
                          *,
-                         alpha_def: float | None = None,
+                         alpha_def: Optional[float] = None,
                          alpha_base: float = 0.30,
                          alpha_max_extra: float = 0.40,
                          alpha_lam: int = 6):
@@ -269,7 +269,7 @@ class FewShot_prototypical:
                  *,
                  mono_label: bool = True,
                  multi_label: bool = False,
-                 alpha_def: float | None = None,
+                 alpha_def: Optional[float] = None,
                  alpha_base: float = 0.30,
                  alpha_max_extra: float = 0.60,
                  alpha_lam: int = 6,

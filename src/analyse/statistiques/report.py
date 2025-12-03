@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Union, Sequence, Optional,List
+from typing import Any, Dict, Union, Sequence, Optional, List
 import pandas as pd
 
 from .config import FEAnalysisConfig
@@ -16,6 +16,103 @@ from src.analyse.dataset.all import (
     FeatureSummaryForLLM,
     FEDatasetSnapshotForLLM,
 )
+
+
+def _compute_correlations(
+    df: pd.DataFrame,
+    target_col: str,
+    task: str = "classification",
+    methods: List[str] = None,
+) -> Dict[str, Any]:
+    """
+    Calcule les corrélations entre les features et la cible.
+
+    Args:
+        df: DataFrame avec les données
+        target_col: Nom de la colonne cible
+        task: "classification" ou "regression"
+        methods: Liste des méthodes à utiliser (par défaut: toutes)
+
+    Returns:
+        Dictionnaire avec les résultats de corrélation
+    """
+    try:
+        from src.analyse.correlation.correlation import FeatureCorrelationAnalyzer
+    except ImportError as e:
+        print(f"[WARN] Module de corrélation non disponible: {e}")
+        return {"error": "Module de corrélation non disponible"}
+
+    if methods is None:
+        methods = ["pearson", "spearman", "kendall", "mutual_info"]
+
+    print("\n" + "="*60)
+    print("       ANALYSE DES CORRÉLATIONS")
+    print("="*60)
+
+    try:
+        analyzer = FeatureCorrelationAnalyzer(df, target_col=target_col, task=task)
+
+        results = {
+            "target": target_col,
+            "task": task,
+            "methods_used": methods,
+        }
+
+        # Corrélations classiques (Pearson, Spearman, Kendall)
+        if any(m in methods for m in ["pearson", "spearman", "kendall"]):
+            print("\n[INFO] Calcul des corrélations classiques (Pearson, Spearman, Kendall)...")
+            classical = analyzer.compute_classical_correlations()
+            results["classical"] = classical.to_dict(orient="records")
+            print(f"  ✓ {len(classical)} features analysées")
+
+        # Mutual Information
+        if "mutual_info" in methods:
+            print("[INFO] Calcul de la Mutual Information...")
+            mi = analyzer.compute_mutual_info()
+            results["mutual_info"] = mi.to_dict(orient="records")
+            print(f"  ✓ Mutual Information calculée")
+
+        # MIC (si minepy installé)
+        if "mic" in methods:
+            print("[INFO] Calcul du MIC (Maximal Information Coefficient)...")
+            mic = analyzer.compute_mic_matrix()
+            results["mic"] = mic.to_dict(orient="records")
+            if mic["mic"].sum() > 0:
+                print(f"  ✓ MIC calculé")
+            else:
+                print(f"  ⚠ MIC non disponible (minepy non installé)")
+
+        # PhiK (si phik installé)
+        if "phik" in methods:
+            print("[INFO] Calcul de PhiK...")
+            phik = analyzer.compute_phik()
+            results["phik"] = phik.to_dict(orient="records")
+            if phik["phik"].sum() > 0:
+                print(f"  ✓ PhiK calculé")
+            else:
+                print(f"  ⚠ PhiK non disponible (phik non installé)")
+
+        # Score combiné
+        print("[INFO] Calcul du score combiné...")
+        combined = analyzer.combined_feature_score(normalize=True)
+        results["combined_scores"] = combined.to_dict(orient="records")
+
+        # Top 10 features
+        top_10 = combined.head(10)[["feature", "combined_score"]].to_dict(orient="records")
+        results["top_10_features"] = top_10
+
+        print("\n" + "-"*60)
+        print("TOP 10 FEATURES (par score combiné de corrélation)")
+        print("-"*60)
+        for i, row in enumerate(top_10, 1):
+            print(f"  {i:2d}. {row['feature']:<30} score: {row['combined_score']:.4f}")
+        print("-"*60)
+
+        return results
+
+    except Exception as e:
+        print(f"[ERROR] Erreur lors du calcul des corrélations: {e}")
+        return {"error": str(e)}
 
 
 def _compute_basic_dataset_stats(
@@ -75,6 +172,10 @@ def analyze_dataset_for_fe(
     # 👇 métadonnées optionnelles pour le LLM
     dataset_name: str = "dataset",
     business_description: Optional[str] = None,
+    # 👇 Options pour les corrélations
+    with_correlations: bool = False,
+    correlation_methods: Optional[List[str]] = None,
+    correlation_task: str = "classification",
 ) -> Dict[str, Any]:
     if isinstance(target_cols, str):
         target_cols = [target_cols]
@@ -83,7 +184,11 @@ def analyze_dataset_for_fe(
 
     for t in target_cols:
         if t not in df.columns:
-            raise ValueError(f"Cible '{t}' absente du DataFrame.")
+            available_cols = list(df.columns)
+            raise ValueError(
+                f"Cible '{t}' absente du DataFrame.\n"
+                f"Colonnes disponibles ({len(available_cols)}): {available_cols}"
+            )
 
     if not target_cols:
         raise ValueError("Aucune colonne cible fournie.")
@@ -117,6 +222,18 @@ def analyze_dataset_for_fe(
     llm_leakage = leakage_result.get("llm", [])            # liste de dataclasses ou vide
 
     # ----------------------------------------------------------------------
+    # 3.5) Corrélations (optionnel - activé avec with_correlations=True)
+    # ----------------------------------------------------------------------
+    correlations_result = None
+    if with_correlations:
+        correlations_result = _compute_correlations(
+            df=df,
+            target_col=main_target,
+            task=correlation_task,
+            methods=correlation_methods,
+        )
+
+    # ----------------------------------------------------------------------
     # 4) Rapport "classique" (comme avant)
     # ----------------------------------------------------------------------
     report: Dict[str, Any] = {
@@ -132,6 +249,10 @@ def analyze_dataset_for_fe(
         "suspected_leakage": suspected_leakage,
         "warnings": warnings,
     }
+
+    # Ajouter les corrélations si calculées
+    if correlations_result is not None:
+        report["correlations"] = correlations_result
 
     # ----------------------------------------------------------------------
     # 5) Construction du snapshot LLM complet
@@ -196,6 +317,10 @@ def analyze_dataset_for_fe(
     # On ajoute le snapshot et le payload JSON-friendly dans le report
     report["llm_snapshot"] = snapshot
     report["llm_payload"] = snapshot.to_llm_payload()
+
+    # Ajouter les corrélations au llm_payload si elles ont été calculées
+    if correlations_result is not None and "error" not in correlations_result:
+        report["llm_payload"]["correlations"] = correlations_result
 
     # ----------------------------------------------------------------------
     # 6) Impression rapport humain

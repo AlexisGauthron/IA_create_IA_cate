@@ -54,11 +54,49 @@ https://lucid.app/lucidspark/9022eca2-d866-4ee7-839f-8f6d71c3aae0/edit?page=0_0&
 
 ## Environnement
 
-### ***Poetry*** pour windows 
+### ***Poetry*** pour windows
 
-### ***Conda*** pour Mac 
+### ***Conda*** pour Mac
 
+```bash
+conda activate Ia_create_ia
+```
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [CLI Reference](docs/cli_reference.md) | Paramètres CLI du pipeline |
+| [Business Agent](docs/business_agent.md) | Agent de clarification métier LLM |
+| [Testing](docs/testing.md) | Guide des tests |
+
+## Quick Start
+
+### Analyse simple
+
+```bash
+python tests/integration/test_analyse.py \
+    --dataset titanic \
+    --target Survived
+```
+
+### Avec enrichissement LLM
+
+```bash
+python tests/integration/test_analyse.py \
+    --dataset titanic \
+    --target Survived \
+    --with-llm
+```
+
+### Pipeline complet
+
+```bash
+python tests/integration/test_pipeline_all.py \
+    --dataset titanic \
+    --target Survived \
+    --full
+```
 
 ### App
 

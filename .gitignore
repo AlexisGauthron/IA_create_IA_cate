@@ -2,3 +2,36 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Fichiers de configuration secrets
+.env
+.env.local
+.env.*.local
+*.secret
+credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Modèles et données générées
+Modeles/
+outputs/
+*.pkl
+*.joblib
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
+
+CLAUDE.md
+LLMFE/

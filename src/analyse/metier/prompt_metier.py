@@ -73,9 +73,18 @@ def build_system_content() -> str:
 
         Les champs à compléter sont :
         - context.business_description : courte description métier du dataset et de l'objectif global (2–4 phrases).
-        - context.metric : nom de la métrique d'évaluation principale la plus adaptée (ex : "f1_macro", "accuracy", "roc_auc", "rmse", etc.).
+        - context.final_metric : nom de la métrique d'évaluation principale la plus adaptée (ex : "f1", "accuracy", "roc_auc", "rmse", "recall", "precision", etc.).
+        - context.final_metric_reason : justification métier du choix de la métrique (1-2 phrases expliquant POURQUOI cette métrique est adaptée au contexte business).
         - features[*].feature_description : pour chaque feature dont feature_description est null, une phrase ou deux expliquant
         ce que représente cette colonne dans le métier, et comment elle est utilisée.
+
+        Note importante sur la métrique :
+        - Le snapshot JSON peut contenir un champ "suggested_metric" qui est une suggestion basée sur des seuils statistiques.
+        - Ta mission est de VALIDER ou MODIFIER cette suggestion en fonction du CONTEXTE MÉTIER.
+        - Par exemple :
+          * Si la suggestion est "accuracy" mais que le contexte métier implique un coût élevé des faux négatifs (ex: fraude, diagnostic médical), tu dois proposer "recall" ou "f1".
+          * Si la suggestion est "f1" mais que l'équilibre entre précision et rappel n'est pas critique, tu peux valider ou proposer une alternative.
+        - Tu dois TOUJOURS justifier ton choix dans "final_metric_reason".
 
         Règles de raisonnement :
 
@@ -104,7 +113,7 @@ def build_system_content() -> str:
         A) Quand tu es en mode QUESTIONS (au moins un score < 0.6) :
         - Tu réponds uniquement en format json :
             {
-            "Mode": Question
+            "Mode": "Question",
             "Q": "<ta question en français, une seule, la plus utile pour clarifier>"
             }
 
@@ -114,24 +123,28 @@ def build_system_content() -> str:
         B) Quand tu es en mode FINAL (tous les scores >= 0.6) :
         - Tu réponds uniquement en format json :
             {
-            "Mode": Final
+            "Mode": "Final",
             "context": {
                 "business_description": {
-                "value": "<ta proposition en texte libre>",
-                "confidence": <score entre 0 et 1>
+                    "value": "<ta proposition en texte libre>",
+                    "confidence": <score entre 0 et 1>
                 },
-                "metric": {
-                "value": "<nom de la métrique principale, ex: 'f1_macro'>",
-                "confidence": <score entre 0 et 1>
+                "final_metric": {
+                    "value": "<nom de la métrique principale, ex: 'f1', 'accuracy', 'recall', 'roc_auc', 'rmse'>",
+                    "confidence": <score entre 0 et 1>
+                },
+                "final_metric_reason": {
+                    "value": "<justification métier du choix de la métrique en 1-2 phrases>",
+                    "confidence": <score entre 0 et 1>
                 }
             },
             "features": [
                 {
-                "name": "<nom de la feature>",
-                "feature_description": {
-                    "value": "<ta description métier de cette feature>",
-                    "confidence": <score entre 0 et 1>
-                }
+                    "name": "<nom de la feature>",
+                    "feature_description": {
+                        "value": "<ta description métier de cette feature>",
+                        "confidence": <score entre 0 et 1>
+                    }
                 },
                 ...
             ]

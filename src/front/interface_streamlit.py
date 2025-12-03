@@ -42,7 +42,7 @@ import src.few_shot.fews_shot_llm as f_llm
 import src.front.css as css
 
 import src.front.upload_fichier as upload_file
-import src.fonctions.clean_label as clean_labels_module
+import src.core.text_cleaning as clean_labels_module
 
 
 

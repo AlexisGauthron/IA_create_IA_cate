@@ -9,35 +9,35 @@ if src_path not in sys.path:
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
-import src.autoML_supervise.all_autoML as auto_all
-import src.Data.load_datasets as an
-import src.fonctions.format_entrainement as format_ent
+from src.automl.runner import all_autoML
+from src.core.io_utils import csv_to_dataframe_train_test
+from src.core.preprocessing import df_to_list_Kaggle
 
 
 model_autoML = ["flaml","autogluon","tpot","h2o"]
 
-def pipeline_create_model(Nom_Projet : str, target_col, autoML = model_autoML):
+def pipeline_create_model(Nom_Projet: str, target_col, autoML=model_autoML, data_dir: str = "data/raw"):
 
     print("[INFO] Chargement Dataset\n")
     # Chargement dataset
+    data_path = f"{data_dir}/{Nom_Projet}"
     try:
-        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{Nom_Projet}")
+        df_train, df_test = csv_to_dataframe_train_test(data_path)
     except:
-        df_train, df_test = an.csv_to_dataframe_train_test(f"Data/{Nom_Projet}", sep=";")
+        df_train, df_test = csv_to_dataframe_train_test(data_path, sep=";")
 
 
     # chargement model
     Nom_dossier = f"Modeles/{Nom_Projet}"
-    dossier = Path(Nom_dossier)          # remplace par ton chemin
+    dossier = Path(Nom_dossier)
     dossier.mkdir(parents=True, exist_ok=True)
 
-    print("[INFO] Mise en forme Entrainement\n")
-    # Mise en format entrainement 
-    # X_train, X_test, y_train = format_ent.df_to_list_Kaggle(df_train,df_test,target_col)
 
-    X_train, X_test, y_train,y_test = format_ent.df_to_list(df_train,target_col)
-    
-    all = auto_all.all_autoML(Nom_dossier,X_train, X_test, y_train, y_test)
-    all.use_all(autoML)
+    print("[INFO] Mise en forme Entrainement\n")
+    # Mise en format entrainement
+    X_train, X_test, y_train = df_to_list_Kaggle(df_train, df_test, target_col)
+
+    automl_runner = all_autoML(Nom_dossier, X_train, X_test, y_train)
+    automl_runner.use_all(autoML)
 
 

@@ -41,7 +41,7 @@ class Calibrate_proto:
 
         label_defs: Optional[Dict[str, str]] = None,
 
-        alpha: float | None = None,     # None => alpha adaptatif par classe
+        alpha: Optional[float] = None,     # None => alpha adaptatif par classe
         alpha_base: float = 0.30,
         alpha_max_extra: float = 0.40,
         alpha_lam: int = 6,

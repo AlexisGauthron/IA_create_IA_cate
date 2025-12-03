@@ -1,12 +1,24 @@
 # src/llm/business_clarification_bot.py
 from __future__ import annotations
+import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Union
+from datetime import datetime
+from typing import Any, Dict, List, Union, Optional
 import json
 
-from src.helper.ollama_llm import OllamaClient
+from src.core.llm_client import OllamaClient
 import src.analyse.metier.prompt_metier as prompt_metier
 from src.analyse.helper.helper_json_safe import make_json_safe
+
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Configuration limite de contexte
+# =============================================================================
+
+# Nombre maximum de messages dans l'historique (hors system)
+# Cela correspond à ~10 échanges question/réponse
+MAX_CONVERSATION_MESSAGES = 20
 
 
 def normalize_string_whitespace(obj: Any) -> Any:
@@ -55,6 +67,11 @@ class BusinessClarificationBot:
 
     # sera rempli par _init_system_message
     stats_json: str | None = None
+
+    # Historique de conversation avec timestamps pour export
+    conversation_history: List[Dict[str, Any]] = field(default_factory=list)
+    system_prompt: str | None = None
+    start_time: str | None = None
 
     def __post_init__(self) -> None:
         self._init_system_message()
@@ -118,12 +135,45 @@ class BusinessClarificationBot:
         #    (prompt_metier.build_system_content() doit renvoyer le SYSTEM_PROMPT à utiliser)
         system_content = prompt_metier.build_system_content()
 
+        # Stocker le system_prompt pour l'export
+        self.system_prompt = system_content
+        self.start_time = datetime.now().isoformat()
+
         self.messages.append({"role": "system", "content": system_content})
 
-        print(f"[DEBUG] System message initialisé.")
-        print(f"\n[INFO] Taille snapshot LLM compacté (JSON minifié) : {len(self.stats_json)} caractères.\n")
-        print(f"\n[INFO] Taille contexte LLM : {len(self.messages)} caractères.\n")
-        print(f"[DEBUG] stats_json (début) : {str(self.stats_json)[:200]}...\n")
+        logger.debug("System message initialisé.")
+        logger.info(f"Taille snapshot LLM compacté (JSON minifié) : {len(self.stats_json)} caractères.")
+        logger.info(f"Taille contexte LLM : {len(self.messages)} messages.")
+        logger.debug(f"stats_json (début) : {str(self.stats_json)[:200]}...")
+
+
+
+
+    # ---------------------------------------------------------
+    # Gestion de la taille du contexte
+    # ---------------------------------------------------------
+    def _truncate_history_if_needed(self) -> None:
+        """
+        Tronque l'historique si trop de messages pour éviter de dépasser
+        le contexte du LLM.
+
+        Stratégie : garder [system] + [premier message avec JSON] + N derniers messages
+        """
+        # messages[0] = system prompt
+        # messages[1] = premier user message (contient le JSON stats)
+        # messages[2:] = conversation Q&A
+
+        if len(self.messages) <= MAX_CONVERSATION_MESSAGES + 2:
+            return  # Pas besoin de tronquer
+
+        # Garder : system (0) + premier message (1) + derniers messages
+        n_to_keep = MAX_CONVERSATION_MESSAGES
+        self.messages = self.messages[:2] + self.messages[-n_to_keep:]
+
+        logger.info(
+            f"Historique tronqué pour rester sous {MAX_CONVERSATION_MESSAGES} messages. "
+            f"Nouveau total: {len(self.messages)}"
+        )
 
     # ---------------------------------------------------------
     # Boucle de conversation
@@ -151,9 +201,64 @@ class BusinessClarificationBot:
             )
 
         self.messages.append({"role": "user", "content": user_content})
-        print(f"[DEBUG] Messages envoyés au LLM : {self.messages}\n")
+
+        # Enregistrer le message utilisateur dans l'historique avec timestamp
+        self.conversation_history.append({
+            "role": "user",
+            "content": user_content,
+            "timestamp": datetime.now().isoformat()
+        })
+
+        # Tronquer l'historique si nécessaire AVANT d'envoyer au LLM
+        self._truncate_history_if_needed()
+
+        logger.debug(f"Messages envoyés au LLM : {len(self.messages)} messages")
 
         answer = self.llm.chat(self.messages)
         self.messages.append({"role": "assistant", "content": answer})
 
+        # Enregistrer la réponse de l'assistant dans l'historique avec timestamp
+        self.conversation_history.append({
+            "role": "assistant",
+            "content": answer,
+            "timestamp": datetime.now().isoformat()
+        })
+
         return answer
+
+    # ---------------------------------------------------------
+    # Export de la conversation
+    # ---------------------------------------------------------
+    def export_conversation(
+        self,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        project: Optional[str] = None,
+        final_report: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Exporte la conversation complète dans un format structuré.
+
+        Args:
+            provider: Nom du provider LLM utilisé (ex: "openai", "ollama")
+            model: Nom du modèle utilisé (ex: "gpt-4o-mini")
+            project: Nom du projet
+            final_report: Rapport final généré par le LLM
+
+        Returns:
+            Dictionnaire contenant la conversation complète avec métadonnées
+        """
+        return {
+            "metadata": {
+                "start_time": self.start_time,
+                "end_time": datetime.now().isoformat(),
+                "provider": provider,
+                "model": model,
+                "project": project,
+                "total_exchanges": len(self.conversation_history)
+            },
+            "system_prompt": self.system_prompt,
+            "stats_snapshot": self.stats_json,
+            "conversation": self.conversation_history,
+            "final_report": final_report
+        }
