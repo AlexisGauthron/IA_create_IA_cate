@@ -638,6 +638,7 @@ class FullPipeline:
         print("\n  Lancement de l'analyse métier LLM...")
 
         try:
+            from src.analyse.metier.business_agent import _is_final_mode, _process_user_input
             from src.analyse.metier.chatbot_llm import BusinessClarificationBot
             from src.core.llm_client import OllamaClient
 
@@ -653,28 +654,44 @@ class FullPipeline:
                 llm=llm_client,
             )
 
+            # Afficher les commandes disponibles
+            print("\n  ╔═══════════════════════════════════════════════════════════════╗")
+            print("  ║  Commandes disponibles :                                      ║")
+            print("  ║  • Passer la question : skip, passe, suivant, next            ║")
+            print("  ║  • Terminer et générer le rapport : done, fin, stop, terminer ║")
+            print("  ║  • Interrompre : Ctrl+C                                       ║")
+            print("  ╚═══════════════════════════════════════════════════════════════╝")
+
             # Première question du bot
             question = bot.ask_next(user_answer=None)
             print(f"\n  Agent: {question}")
 
-            # Boucle de conversation interactive
-            while True:
-                try:
-                    user_input = input("\n  Vous (ou 'q' pour terminer): ").strip()
-                except (EOFError, KeyboardInterrupt):
-                    print("\n  [Conversation interrompue]")
-                    break
+            # Vérifier si la première réponse est déjà finale
+            if _is_final_mode(question):
+                print("\n  [Le LLM a généré le rapport final]")
+            else:
+                # Boucle de conversation interactive
+                while True:
+                    try:
+                        user_input = input("\n  Vous: ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\n  [Conversation interrompue]")
+                        break
 
-                if user_input.lower() in ("q", "quit", "exit", "terminer"):
-                    print("\n  [Fin de la conversation]")
-                    break
+                    if not user_input:
+                        continue
 
-                if not user_input:
-                    continue
+                    # Formater la réponse (gère les commandes SKIP/DONE)
+                    formatted_input = _process_user_input(user_input, verbose=True)
 
-                # Obtenir la prochaine question
-                question = bot.ask_next(user_answer=user_input)
-                print(f"\n  Agent: {question}")
+                    # Obtenir la prochaine question
+                    question = bot.ask_next(user_answer=formatted_input)
+                    print(f"\n  Agent: {question}")
+
+                    # Vérifier si le LLM a terminé (Mode: Final)
+                    if _is_final_mode(question):
+                        print("\n  [Le LLM a généré le rapport final]")
+                        break
 
             # 1. Trouver la réponse finale du LLM (Mode: Final)
             final_llm_report = None
@@ -744,11 +761,13 @@ class FullPipeline:
                 )
                 print(f"    - final_metric: {full_report['context'].get('final_metric', 'N/A')}")
                 print(f"    - Features enrichies: {len(llm_features)}")
+
+                # Sauvegarder le rapport full SEULEMENT si Mode Final trouvé
+                full_report_path = analyse_path_config.save_full_report(full_report)
+                print(f"  Rapport complet sauvegardé: {full_report_path}")
             else:
                 print("\n  [WARN] Aucune réponse finale (Mode: Final) trouvée dans la conversation")
-
-            full_report_path = analyse_path_config.save_full_report(full_report)
-            print(f"  Rapport complet sauvegardé: {full_report_path}")
+                print("  [INFO] Le dossier full/ ne sera PAS créé (pas de métadonnées LLM fiables)")
 
         except Exception as e:
             print(f"\n  [ERREUR] Analyse métier LLM échouée: {e}")

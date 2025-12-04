@@ -68,8 +68,12 @@ class AnalysePathConfig(BasePathConfig):
     # === Implémentation des méthodes abstraites ===
 
     def _get_subdirectories(self) -> list[Path]:
-        """Retourne les sous-dossiers spécifiques à l'analyse."""
-        return [self.stats_dir, self.full_dir, self.agent_llm_dir]
+        """Retourne les sous-dossiers spécifiques à l'analyse.
+
+        Note: full_dir n'est PAS créé ici - il sera créé uniquement
+        lors de save_full_report() si le LLM renvoie un Mode Final.
+        """
+        return [self.stats_dir, self.agent_llm_dir]
 
     def get_all_paths(self) -> dict[str, str]:
         """Retourne tous les chemins configurés."""

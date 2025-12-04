@@ -69,6 +69,60 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 # =============================================================================
+# Sauvegarde conversation LLM
+# =============================================================================
+def save_llm_conversation(final_report: dict | None = None):
+    """
+    Sauvegarde la conversation LLM et le rapport final dans les fichiers JSON.
+
+    Args:
+        final_report: Rapport final du LLM (si Mode: Final détecté)
+    """
+    from src.analyse.path_config import AnalysePathConfig
+
+    project_name = st.session_state.get("project_name")
+    if not project_name:
+        print("[SAVE] Pas de project_name, sauvegarde ignorée")
+        return
+
+    chatbot = st.session_state.get("chatbot")
+    if not chatbot:
+        print("[SAVE] Pas de chatbot, sauvegarde ignorée")
+        return
+
+    try:
+        # Créer le path_config
+        path_config = AnalysePathConfig(project_name=project_name)
+
+        # Récupérer provider/model depuis session_state
+        provider = st.session_state.get("agent_provider", "unknown")
+        model = st.session_state.get("agent_model", "unknown")
+
+        # Exporter la conversation
+        conversation_data = chatbot.export_conversation(
+            provider=provider,
+            model=model,
+            project=project_name,
+            final_report=final_report,
+        )
+
+        # Sauvegarder la conversation
+        conv_path = path_config.save_conversation(conversation_data)
+        print(f"[SAVE] Conversation sauvegardée: {conv_path}")
+
+        # Sauvegarder le rapport final si présent
+        if final_report:
+            full_path = path_config.save_full_report(final_report)
+            print(f"[SAVE] Rapport final sauvegardé: {full_path}")
+
+    except Exception as e:
+        print(f"[SAVE] Erreur lors de la sauvegarde: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+
+# =============================================================================
 # Session State Initialization
 # =============================================================================
 def init_session_state():
@@ -893,13 +947,44 @@ def process_user_input(user_input: str):
         st.rerun()
         return
 
-    if user_input.lower().strip() in ["done", "terminé", "fini"]:
-        st.session_state.chat_history.append(
-            {
-                "role": "assistant",
-                "content": "Parfait! Je vais utiliser les informations collectées pour le feature engineering.",
-            }
-        )
+    if user_input.lower().strip() in ["done", "terminé", "fini", "stop", "fin"]:
+        # Demander au LLM de générer le rapport final
+        chatbot = st.session_state.get("chatbot")
+        if chatbot:
+            with st.spinner("🤖 Génération du rapport final..."):
+                try:
+                    from src.analyse.metier.business_agent import (
+                        _is_final_mode,
+                        _process_user_input,
+                    )
+
+                    # Formater la demande de rapport final
+                    formatted_input = _process_user_input(user_input, verbose=False)
+                    response = chatbot.ask_next(user_answer=formatted_input)
+
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+
+                    # Parser et sauvegarder le rapport final
+                    if _is_final_mode(response):
+                        parsed = parse_llm_response(response)
+                        save_llm_conversation(final_report=parsed)
+                        st.success("✅ Conversation et rapport sauvegardés!")
+                    else:
+                        # Pas de Mode Final, sauvegarder quand même la conversation
+                        save_llm_conversation(final_report=None)
+                        st.info("📝 Conversation sauvegardée (pas de rapport final)")
+
+                except Exception as e:
+                    print(f"[DONE] Erreur: {e}")
+                    save_llm_conversation(final_report=None)
+        else:
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "content": "Parfait! Je vais utiliser les informations collectées pour le feature engineering.",
+                }
+            )
+
         st.session_state.current_step = 4
         st.rerun()
         return
@@ -924,6 +1009,9 @@ def process_user_input(user_input: str):
             # Vérifier si le LLM est en mode Final
             parsed = parse_llm_response(response)
             if parsed["mode"].lower() == "final":
+                # Sauvegarder la conversation et le rapport final
+                save_llm_conversation(final_report=parsed)
+                st.success("✅ Conversation et rapport sauvegardés!")
                 st.session_state.current_step = 4
 
         except Exception as e:
