@@ -1,16 +1,12 @@
-
-
 # -------------------------------------------------
 # Standard libs & typing
 # -------------------------------------------------
 from contextlib import contextmanager
-from typing import List, Optional
 
 # -------------------------------------------------
 # Third‑party libs
 # -------------------------------------------------
 import streamlit as st
-
 
 
 # -------------------------------------------------
@@ -24,7 +20,7 @@ def card_block(parent=st, border=True):
         yield c
 
 
-def _compute_select_index(columns: List[str], default_text_col: Optional[str]) -> int:
+def _compute_select_index(columns: list[str], default_text_col: str | None) -> int:
     """Return the index for a selectbox given a list of column names and an optional default.
     Falls back to 0 if default is None or not present.
     """

@@ -13,13 +13,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
+
 import pandas as pd
 
 
 @dataclass
 class FeatureInsight:
     """Insight sur une feature individuelle."""
+
     name: str
     role: str = "feature"  # feature, target, id, text, timestamp
     inferred_type: str = "unknown"  # numeric, categorical_low, categorical_high, text, etc.
@@ -32,29 +34,29 @@ class FeatureInsight:
     unique_ratio: float = 0.0
 
     # Stats numériques (si applicable)
-    min_val: Optional[float] = None
-    max_val: Optional[float] = None
-    mean: Optional[float] = None
-    std: Optional[float] = None
-    skewness: Optional[float] = None
+    min_val: float | None = None
+    max_val: float | None = None
+    mean: float | None = None
+    std: float | None = None
+    skewness: float | None = None
 
     # Stats catégorielles (si applicable)
-    categories: List[str] = field(default_factory=list)
-    top_categories: List[Dict[str, Any]] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
+    top_categories: list[dict[str, Any]] = field(default_factory=list)
 
     # Corrélation avec la cible (calculée par src/analyse/correlation/)
-    correlation: Optional[float] = None  # Pearson
-    correlation_spearman: Optional[float] = None
-    mutual_info: Optional[float] = None
-    combined_score: Optional[float] = None  # Score global
+    correlation: float | None = None  # Pearson
+    correlation_spearman: float | None = None
+    mutual_info: float | None = None
+    combined_score: float | None = None  # Score global
 
     # Flags et hints (générés par src/analyse/)
-    flags: List[str] = field(default_factory=list)  # ID_LIKE, HIGH_CARDINALITY, CONSTANT
-    fe_hints: List[str] = field(default_factory=list)  # candidate_for_scaling, use_target_encoding
-    notes: List[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)  # ID_LIKE, HIGH_CARDINALITY, CONSTANT
+    fe_hints: list[str] = field(default_factory=list)  # candidate_for_scaling, use_target_encoding
+    notes: list[str] = field(default_factory=list)
 
     # Description métier (si disponible via LLM)
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class FeatureInsights:
@@ -67,16 +69,16 @@ class FeatureInsights:
 
     def __init__(
         self,
-        features: Dict[str, FeatureInsight],
-        target_name: Optional[str] = None,
-        analyse_path: Optional[Path] = None,
+        features: dict[str, FeatureInsight],
+        target_name: str | None = None,
+        analyse_path: Path | None = None,
     ):
         self.features = features
         self.target_name = target_name
         self.analyse_path = analyse_path  # Chemin du JSON source
 
     @classmethod
-    def from_json(cls, json_path: Union[str, Path]) -> "FeatureInsights":
+    def from_json(cls, json_path: str | Path) -> FeatureInsights:
         """
         Charge les insights depuis un fichier JSON d'analyse (report_stats.json).
 
@@ -90,7 +92,7 @@ class FeatureInsights:
         if not json_path.exists():
             raise FileNotFoundError(f"Fichier d'analyse non trouvé: {json_path}")
 
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
 
         features = {}
@@ -137,9 +139,9 @@ class FeatureInsights:
     @classmethod
     def from_json_with_correlations(
         cls,
-        stats_json_path: Union[str, Path],
-        correlations_json_path: Optional[Union[str, Path]] = None,
-    ) -> "FeatureInsights":
+        stats_json_path: str | Path,
+        correlations_json_path: str | Path | None = None,
+    ) -> FeatureInsights:
         """
         Charge les insights depuis le JSON stats + corrélations optionnelles.
 
@@ -157,7 +159,7 @@ class FeatureInsights:
         if correlations_json_path:
             corr_path = Path(correlations_json_path)
             if corr_path.exists():
-                with open(corr_path, "r", encoding="utf-8") as f:
+                with open(corr_path, encoding="utf-8") as f:
                     corr_data = json.load(f)
 
                 # Ajouter les corrélations aux features
@@ -178,7 +180,7 @@ class FeatureInsights:
         target_col: str,
         project_name: str,
         compute_correlations: bool = True,
-    ) -> "FeatureInsights":
+    ) -> FeatureInsights:
         """
         Lance l'analyse via src/analyse/ et charge le résultat.
 
@@ -195,10 +197,10 @@ class FeatureInsights:
             Instance de FeatureInsights
         """
         # Import des modules d'analyse
-        from src.analyse.path_config import AnalysePathConfig
         import src.analyse.statistiques.report as report
+        from src.analyse.path_config import AnalysePathConfig
 
-        print(f"📊 Lancement de l'analyse via src/analyse/...")
+        print("📊 Lancement de l'analyse via src/analyse/...")
 
         # Créer la configuration des chemins pour l'analyse
         analyse_path_config = AnalysePathConfig(project_name=project_name)
@@ -225,7 +227,7 @@ class FeatureInsights:
             try:
                 from src.analyse.correlation.correlation import FeatureCorrelationAnalyzer
 
-                print(f"📈 Calcul des corrélations avancées...")
+                print("📈 Calcul des corrélations avancées...")
 
                 # Déterminer le type de tâche
                 n_unique_target = df[target_col].nunique()
@@ -259,18 +261,19 @@ class FeatureInsights:
         # Charger depuis le JSON généré
         return cls.from_json(json_path)
 
-    def get_feature(self, name: str) -> Optional[FeatureInsight]:
+    def get_feature(self, name: str) -> FeatureInsight | None:
         """Retourne l'insight pour une feature donnée."""
         return self.features.get(name)
 
-    def get_all_features(self) -> List[FeatureInsight]:
+    def get_all_features(self) -> list[FeatureInsight]:
         """Retourne tous les insights."""
         return list(self.features.values())
 
-    def get_features_by_importance(self) -> List[FeatureInsight]:
+    def get_features_by_importance(self) -> list[FeatureInsight]:
         """
         Retourne les features triées par importance (score combiné ou corrélation).
         """
+
         def get_score(f: FeatureInsight) -> float:
             if f.combined_score is not None:
                 return abs(f.combined_score)
@@ -280,21 +283,19 @@ class FeatureInsights:
 
         return sorted(self.features.values(), key=get_score, reverse=True)
 
-    def get_high_value_features(self, threshold: float = 0.3) -> List[FeatureInsight]:
+    def get_high_value_features(self, threshold: float = 0.3) -> list[FeatureInsight]:
         """Retourne les features avec une corrélation élevée."""
         return [
-            f for f in self.features.values()
+            f
+            for f in self.features.values()
             if f.correlation is not None and abs(f.correlation) >= threshold
         ]
 
-    def get_low_value_features(self) -> List[FeatureInsight]:
+    def get_low_value_features(self) -> list[FeatureInsight]:
         """Retourne les features à faible valeur (ID, constantes, etc.)."""
-        return [
-            f for f in self.features.values()
-            if "ID_LIKE" in f.flags or "CONSTANT" in f.flags
-        ]
+        return [f for f in self.features.values() if "ID_LIKE" in f.flags or "CONSTANT" in f.flags]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convertit en dictionnaire pour sérialisation."""
         return {
             "target_name": self.target_name,
@@ -312,9 +313,11 @@ class FeatureInsights:
                     "fe_hints": f.fe_hints,
                 }
                 for name, f in self.features.items()
-            }
+            },
         }
 
     def __repr__(self) -> str:
         source = f", source='{self.analyse_path}'" if self.analyse_path else ""
-        return f"FeatureInsights({len(self.features)} features, target='{self.target_name}'{source})"
+        return (
+            f"FeatureInsights({len(self.features)} features, target='{self.target_name}'{source})"
+        )

@@ -4,12 +4,11 @@ Gestion centralisée des chemins et fichiers pour LLMFE.
 Tous les fichiers générés sont organisés dans un dossier unique par projet.
 """
 
-import os
 import json
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -36,7 +35,7 @@ class LLMFEPathConfig:
     module_root: Path = field(default_factory=lambda: Path(__file__).parent.parent)
 
     # Run ID optionnel pour différencier plusieurs exécutions
-    run_id: Optional[str] = None
+    run_id: str | None = None
 
     # Chemins calculés (initialisés dans __post_init__)
     _initialized: bool = field(default=False, repr=False)
@@ -97,7 +96,7 @@ class LLMFEPathConfig:
             "project_name": self.project_name,
             "run_id": self.run_id,
             "created_at": datetime.now().isoformat(),
-            "paths": self.to_dict()
+            "paths": self.to_dict(),
         }
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
@@ -178,7 +177,7 @@ class LLMFEPathConfig:
         """Retourne le chemin d'un fichier sample."""
         return self.samples_dir / f"sample_{sample_order:04d}.json"
 
-    def write_sample(self, sample_order: int, function_str: str, score: Optional[float]) -> Path:
+    def write_sample(self, sample_order: int, function_str: str, score: float | None) -> Path:
         """
         Écrit un sample JSON.
 
@@ -195,16 +194,16 @@ class LLMFEPathConfig:
             "sample_order": sample_order,
             "function": function_str,
             "score": score,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(content, f, indent=2, ensure_ascii=False)
         return path
 
-    def read_sample(self, sample_order: int) -> Dict[str, Any]:
+    def read_sample(self, sample_order: int) -> dict[str, Any]:
         """Lit un sample existant."""
         path = self.get_sample_path(sample_order)
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
 
     def list_samples(self) -> list:
@@ -217,7 +216,7 @@ class LLMFEPathConfig:
         """Retourne le chemin d'un fichier résultat."""
         return self.results_dir / filename
 
-    def save_best_model(self, model_info: Dict[str, Any]) -> Path:
+    def save_best_model(self, model_info: dict[str, Any]) -> Path:
         """
         Sauvegarde les infos du meilleur modèle.
 
@@ -240,7 +239,7 @@ class LLMFEPathConfig:
             json.dump(scores, f, indent=2)
         return path
 
-    def save_summary(self, summary: Dict[str, Any]) -> Path:
+    def save_summary(self, summary: dict[str, Any]) -> Path:
         """Sauvegarde un résumé de l'exécution."""
         path = self.results_dir / "summary.json"
         summary["saved_at"] = datetime.now().isoformat()
@@ -278,7 +277,7 @@ class LLMFEPathConfig:
 ╚══════════════════════════════════════════════════════════════╝
 """
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Exporte la config en dictionnaire de strings."""
         return {
             "project_name": self.project_name,
@@ -294,7 +293,7 @@ class LLMFEPathConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]) -> "LLMFEPathConfig":
+    def from_dict(cls, data: dict[str, str]) -> "LLMFEPathConfig":
         """Crée une instance depuis un dictionnaire."""
         return cls(
             project_name=data["project_name"],
@@ -302,7 +301,7 @@ class LLMFEPathConfig:
             run_id=data.get("run_id"),
         )
 
-    def get_latest_run(self) -> Optional[Path]:
+    def get_latest_run(self) -> Path | None:
         """Retourne le dossier du dernier run."""
         runs_dir = self.project_dir / "runs"
         if not runs_dir.exists():

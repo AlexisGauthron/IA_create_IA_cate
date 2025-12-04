@@ -1,21 +1,22 @@
 # src/feature_analysis/targets.py
 from __future__ import annotations
 
-from typing import Dict, Any, Sequence
+from collections.abc import Sequence
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
-from .config import FEAnalysisConfig
-
-
 from src.analyse.dataset.cibles import TargetSummaryForLLM
+
+from .config import FEAnalysisConfig
 
 
 def analyze_targets(
     df: pd.DataFrame,
     target_cols: Sequence[str],
     config: FEAnalysisConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyse les colonnes cibles d'un DataFrame pour guider le choix du cadre
     (classification / régression) et les étapes de feature engineering autour de y.
@@ -37,8 +38,8 @@ def analyze_targets(
           "llm":     {nom_cible -> TargetSummaryForLLM}
         }
     """
-    summary: Dict[str, Any] = {}
-    llm_targets: Dict[str, TargetSummaryForLLM] = {}
+    summary: dict[str, Any] = {}
+    llm_targets: dict[str, TargetSummaryForLLM] = {}
 
     n_rows = len(df)
 
@@ -65,10 +66,7 @@ def analyze_targets(
             if n_unique <= 2:
                 target_type = "numeric-binary"
                 problem_hint = "binary_classification"
-            elif (
-                n_unique <= config.max_classes_for_classif
-                and (n_unique / max(1, n_rows) < 0.2)
-            ):
+            elif n_unique <= config.max_classes_for_classif and (n_unique / max(1, n_rows) < 0.2):
                 # Probable multi-classe
                 target_type = "numeric-few-classes"
                 problem_hint = "multiclass_classification"
@@ -119,7 +117,7 @@ def analyze_targets(
             notes.append(f"Valeurs manquantes : {missing_rate:.1%} (à gérer).")
 
         # --- 4) Construction du dict "classique" pour cette cible ---
-        info: Dict[str, Any] = {
+        info: dict[str, Any] = {
             "dtype": dtype,
             "n_unique": int(n_unique),
             "missing_rate": missing_rate,
@@ -206,4 +204,3 @@ def analyze_targets(
         "summary": summary,
         "llm": llm_targets,
     }
-

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
-
 # 👇 dataclasses pour le LLM
 from src.analyse.dataset.features import (
-    NumericStats,
     CategoricalStats,
+    NumericStats,
     TextStats,
 )
 
@@ -53,7 +53,7 @@ def _build_categorical_stats(
     n_unique = int(vc.shape[0])
     unique_ratio = float(n_unique / n_rows) if n_rows > 0 else 0.0
 
-    top_values: List[Dict[str, Any]] = []
+    top_values: list[dict[str, Any]] = []
     for val, count in vc.head(n_top).items():
         freq = float(count / n_rows) if n_rows > 0 else 0.0
         top_values.append(
@@ -96,7 +96,6 @@ def _build_text_stats(
 
     tok_counts = s_str.str.split().map(len)
     avg_tok = float(tok_counts.mean())
-
 
     return TextStats(
         avg_char_length=avg_char,

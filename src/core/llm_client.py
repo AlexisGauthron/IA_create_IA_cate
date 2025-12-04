@@ -2,14 +2,16 @@
 """
 Client LLM unifié pour Ollama et OpenAI.
 """
+
 from __future__ import annotations
-from typing import List, Dict, Literal, Optional
+
+import logging
 import os
 import time
-import logging
-import requests
+from typing import Literal
 
-from openai import OpenAI, APIError, APITimeoutError, RateLimitError
+import requests
+from openai import APIError, APITimeoutError, OpenAI, RateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -19,23 +21,28 @@ Provider = Literal["ollama", "openai"]
 # Exceptions personnalisées
 # =============================================================================
 
+
 class LLMError(Exception):
     """Classe de base pour les erreurs LLM."""
+
     pass
 
 
 class LLMTimeoutError(LLMError):
     """Le LLM n'a pas répondu dans le temps imparti."""
+
     pass
 
 
 class LLMConnectionError(LLMError):
     """Erreur de connexion au LLM (réseau, serveur down, etc.)."""
+
     pass
 
 
 class LLMRateLimitError(LLMError):
     """Rate limit atteint (trop de requêtes)."""
+
     pass
 
 
@@ -80,18 +87,18 @@ class OllamaClient:
 
     def __init__(
         self,
-        model: Optional[str] = None,
+        model: str | None = None,
         *,
-        provider: Optional[Provider] = None,
+        provider: Provider | None = None,
         # --- Ollama ---
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         # --- OpenAI ---
-        openai_api_key: Optional[str] = None,
-        openai_base_url: Optional[str] = None,
+        openai_api_key: str | None = None,
+        openai_base_url: str | None = None,
         # --- Params communs ---
         temperature: float = 0.2,
         max_tokens: int = 8024,
-        format_llm: Optional[str] = None,
+        format_llm: str | None = None,
     ) -> None:
         # Charger les settings pour les valeurs par défaut
         from src.core.config import settings
@@ -125,7 +132,7 @@ class OllamaClient:
     # ------------------------------------------------------------------
     # Méthode principale : même signature que ton ancien client
     # ------------------------------------------------------------------
-    def chat(self, messages: List[Dict[str, str]]) -> str:
+    def chat(self, messages: list[dict[str, str]]) -> str:
         """
         messages = [
           {"role": "system", "content": "..."},
@@ -143,7 +150,7 @@ class OllamaClient:
     # ------------------------------------------------------------------
     # Implémentation Ollama (avec retry et gestion d'erreurs)
     # ------------------------------------------------------------------
-    def _chat_ollama(self, messages: List[Dict[str, str]]) -> str:
+    def _chat_ollama(self, messages: list[dict[str, str]]) -> str:
         payload = {
             "model": self.model,
             "messages": messages,
@@ -186,7 +193,9 @@ class OllamaClient:
 
             except requests.ConnectionError as e:
                 last_error = e
-                logger.warning(f"Erreur connexion Ollama (tentative {attempt + 1}/{MAX_RETRIES}): {e}")
+                logger.warning(
+                    f"Erreur connexion Ollama (tentative {attempt + 1}/{MAX_RETRIES}): {e}"
+                )
                 if attempt < MAX_RETRIES - 1:
                     time.sleep(RETRY_BASE_DELAY * (attempt + 1))
                 else:
@@ -198,7 +207,9 @@ class OllamaClient:
             except requests.HTTPError as e:
                 last_error = e
                 status_code = e.response.status_code if e.response else None
-                logger.warning(f"Erreur HTTP Ollama {status_code} (tentative {attempt + 1}/{MAX_RETRIES})")
+                logger.warning(
+                    f"Erreur HTTP Ollama {status_code} (tentative {attempt + 1}/{MAX_RETRIES})"
+                )
 
                 # Erreurs 5xx = serveur, on peut retry
                 if status_code and 500 <= status_code < 600:
@@ -207,9 +218,7 @@ class OllamaClient:
                         continue
 
                 # Erreurs 4xx = client, pas de retry
-                raise LLMConnectionError(
-                    f"Erreur HTTP {status_code} de Ollama: {e}"
-                ) from e
+                raise LLMConnectionError(f"Erreur HTTP {status_code} de Ollama: {e}") from e
 
         # Ne devrait pas arriver, mais au cas où
         raise LLMError(f"Erreur inattendue après {MAX_RETRIES} tentatives") from last_error
@@ -217,7 +226,7 @@ class OllamaClient:
     # ------------------------------------------------------------------
     # Implémentation OpenAI (avec retry et gestion d'erreurs)
     # ------------------------------------------------------------------
-    def _chat_openai(self, messages: List[Dict[str, str]]) -> str:
+    def _chat_openai(self, messages: list[dict[str, str]]) -> str:
         if self._openai_client is None:
             raise RuntimeError("Client OpenAI non initialisé.")
 
@@ -279,7 +288,7 @@ class OllamaClient:
                 last_error = e
                 logger.warning(f"Erreur API OpenAI (tentative {attempt + 1}/{MAX_RETRIES}): {e}")
                 # Erreurs serveur (5xx) = retry, autres = stop
-                if hasattr(e, 'status_code') and e.status_code and 500 <= e.status_code < 600:
+                if hasattr(e, "status_code") and e.status_code and 500 <= e.status_code < 600:
                     if attempt < MAX_RETRIES - 1:
                         time.sleep(RETRY_BASE_DELAY * (attempt + 1))
                         continue

@@ -1,8 +1,10 @@
 """
 Tests unitaires pour le wrapper H2O AutoML.
 """
-import sys
+
 import os
+import sys
+
 import pytest
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
@@ -13,6 +15,7 @@ if src_path not in sys.path:
 # Vérifier si h2o est installé
 try:
     import h2o
+
     H2O_AVAILABLE = True
 except ImportError:
     H2O_AVAILABLE = False
@@ -25,12 +28,15 @@ class TestH2O:
     def test_import_h2o_wrapper(self):
         """Test l'import du wrapper H2O."""
         from src.automl.supervised.h2o_wrapper import autoMl_h2o
+
         assert autoMl_h2o is not None
 
     def test_h2o_training(self):
         """Test l'entraînement H2O sur breast_cancer."""
         from pathlib import Path
+
         from sklearn.model_selection import train_test_split
+
         from src.automl.supervised.h2o_wrapper import autoMl_h2o
         from src.core.io_utils import load_datasets_breast_cancer
 
@@ -40,8 +46,8 @@ class TestH2O:
         dossier.mkdir(parents=True, exist_ok=True)
 
         df = load_datasets_breast_cancer()
-        X = df.drop(columns=['target'])
-        y = df['target']
+        X = df.drop(columns=["target"])
+        y = df["target"]
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, stratify=y, test_size=0.2, random_state=42
         )

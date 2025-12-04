@@ -1,15 +1,14 @@
-""" Implementation of the llmfe pipeline. """
+"""Implementation of the llmfe pipeline."""
+
 from __future__ import annotations
 
-# from collections.abc import Sequence
-from typing import Any, Tuple, Sequence, Optional, TYPE_CHECKING
+from collections.abc import Sequence
 
-from src.feature_engineering.llmfe import code_manipulation
+# from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
+
+from src.feature_engineering.llmfe import buffer, code_manipulation, evaluator, profile, sampler
 from src.feature_engineering.llmfe import config as config_lib
-from src.feature_engineering.llmfe import evaluator
-from src.feature_engineering.llmfe import buffer
-from src.feature_engineering.llmfe import sampler
-from src.feature_engineering.llmfe import profile
 from src.feature_engineering.llmfe.feature_formatter import FeatureFormat
 from src.feature_engineering.llmfe.feature_insights import FeatureInsights
 
@@ -18,39 +17,38 @@ if TYPE_CHECKING:
     from src.feature_engineering.path_config import FeatureEngineeringPathConfig
 
 
-def _extract_function_names(specification: str) -> Tuple[str, str]:
-    """ Return the name of the function to evolve and of the function to run.
+def _extract_function_names(specification: str) -> tuple[str, str]:
+    """Return the name of the function to evolve and of the function to run.
 
     The so-called specification refers to the boilerplate code template for a task.
     The template MUST have two important functions decorated with '@evaluate.run', '@equation.evolve' respectively.
     The function labeled with '@evaluate.run' is going to evaluate the generated code (like data-diven fitness evaluation).
     The function labeled with '@equation.evolve' is the function to be searched (like 'equation' structure).
     """
-    run_functions = list(code_manipulation.yield_decorated(specification, 'evaluate', 'run'))
+    run_functions = list(code_manipulation.yield_decorated(specification, "evaluate", "run"))
     if len(run_functions) != 1:
-        raise ValueError('Expected 1 function decorated with `@evaluate.run`.')
-    evolve_functions = list(code_manipulation.yield_decorated(specification, 'equation', 'evolve'))
-    
+        raise ValueError("Expected 1 function decorated with `@evaluate.run`.")
+    evolve_functions = list(code_manipulation.yield_decorated(specification, "equation", "evolve"))
+
     if len(evolve_functions) != 1:
-        raise ValueError('Expected 1 function decorated with `@equation.evolve`.')
-    
+        raise ValueError("Expected 1 function decorated with `@equation.evolve`.")
+
     return evolve_functions[0], run_functions[0]
 
 
-
 def main(
-        specification: str,
-        inputs: Sequence[Any],
-        config: config_lib.Config,
-        meta_data: dict,
-        max_sample_nums: Optional[int],
-        class_config: config_lib.ClassConfig,
-        path_config: Optional["FeatureEngineeringPathConfig"] = None,
-        feature_insights: Optional[FeatureInsights] = None,
-        feature_format: FeatureFormat = FeatureFormat.BASIC,
-        **kwargs
+    specification: str,
+    inputs: Sequence[Any],
+    config: config_lib.Config,
+    meta_data: dict,
+    max_sample_nums: int | None,
+    class_config: config_lib.ClassConfig,
+    path_config: FeatureEngineeringPathConfig | None = None,
+    feature_insights: FeatureInsights | None = None,
+    feature_format: FeatureFormat = FeatureFormat.BASIC,
+    **kwargs,
 ):
-    """ Launch a llmfe experiment.
+    """Launch a llmfe experiment.
     Args:
         specification: the boilerplate code for the problem.
         inputs       : the data instances for the problem.
@@ -76,17 +74,17 @@ def main(
     )
 
     # Créer le profiler avec path_config si disponible, sinon fallback sur log_dir
-    log_dir = kwargs.get('log_dir', None)
+    log_dir = kwargs.get("log_dir", None)
 
     # Extraire les features originales et la colonne cible pour le tracker
     original_features = []
     target_column = None
-    if isinstance(inputs, dict) and 'data' in inputs:
-        data_dict = inputs['data']
-        if 'inputs' in data_dict and hasattr(data_dict['inputs'], 'columns'):
-            original_features = list(data_dict['inputs'].columns)
+    if isinstance(inputs, dict) and "data" in inputs:
+        data_dict = inputs["data"]
+        if "inputs" in data_dict and hasattr(data_dict["inputs"], "columns"):
+            original_features = list(data_dict["inputs"].columns)
         # On peut aussi récupérer le nom de la target si disponible
-        target_column = kwargs.get('target_column', None)
+        target_column = kwargs.get("target_column", None)
 
     if path_config is not None:
         profiler = profile.Profiler(
@@ -105,39 +103,52 @@ def main(
         profiler = None
 
     # Passer le DataFrame original au profiler pour la sauvegarde du dataset transformé
-    if profiler is not None and isinstance(inputs, dict) and 'data' in inputs:
-        data_dict = inputs['data']
-        if 'inputs' in data_dict and 'outputs' in data_dict and target_column:
-            import pandas as pd
-            df_original = data_dict['inputs'].copy()
-            df_original[target_column] = data_dict['outputs']
+    if profiler is not None and isinstance(inputs, dict) and "data" in inputs:
+        data_dict = inputs["data"]
+        if "inputs" in data_dict and "outputs" in data_dict and target_column:
+            df_original = data_dict["inputs"].copy()
+            df_original[target_column] = data_dict["outputs"]
             profiler.set_original_data(df_original, target_column)
 
     evaluators = []
     for _ in range(config.num_evaluators):
-        evaluators.append(evaluator.Evaluator(
-            database,
-            template,
-            function_to_evolve,
-            function_to_run,
-            inputs,
-            timeout_seconds=config.evaluate_timeout_seconds,
-            sandbox_class=class_config.sandbox_class
-        ))
+        evaluators.append(
+            evaluator.Evaluator(
+                database,
+                template,
+                function_to_evolve,
+                function_to_run,
+                inputs,
+                timeout_seconds=config.evaluate_timeout_seconds,
+                sandbox_class=class_config.sandbox_class,
+            )
+        )
         print("Boucle")
 
     initial = template.get_function(function_to_evolve).body
-    evaluators[0].analyse(initial, island_id=None, version_generated=None, data_input=inputs['data']['inputs'], data_output= inputs['data']['outputs'], profiler=profiler)
+    evaluators[0].analyse(
+        initial,
+        island_id=None,
+        version_generated=None,
+        data_input=inputs["data"]["inputs"],
+        data_output=inputs["data"]["outputs"],
+        profiler=profiler,
+    )
     # Set global max sample nums.
-    samplers = [sampler.Sampler(database, evaluators, 
-                                config.samples_per_prompt, 
-                                meta_data=meta_data,
-                                max_sample_nums=max_sample_nums,
-                                llm_class=class_config.llm_class,
-                                config = config)
-                                for _ in range(config.num_samplers)]
+    samplers = [
+        sampler.Sampler(
+            database,
+            evaluators,
+            config.samples_per_prompt,
+            meta_data=meta_data,
+            max_sample_nums=max_sample_nums,
+            llm_class=class_config.llm_class,
+            config=config,
+        )
+        for _ in range(config.num_samplers)
+    ]
 
-    print("SAMPLERRS :",samplers)
+    print("SAMPLERRS :", samplers)
     # This loop can be executed in parallel on remote sampler machines. As each
     # sampler enters an infinite loop, without parallelization only the first
     # sampler will do any work.

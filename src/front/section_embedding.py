@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # -------------------------------------------------
 # Bootstrapping: add 'src' to PYTHONPATH once
@@ -18,27 +18,19 @@ os.environ["MKL_NUM_THREADS"] = "1"
 # -------------------------------------------------
 # Standard libs & typing
 # -------------------------------------------------
-import json, re, time, math
-from typing import Any, Dict, List, Tuple, Optional
-from contextlib import contextmanager
-from collections import Counter, defaultdict
 
 # -------------------------------------------------
 # Third‑party libs
 # -------------------------------------------------
 import pandas as pd
-import numpy as np
-import requests
 import streamlit as st
+
+import src.few_shot.prototypical.classify as emb_classify
 
 # -------------------------------------------------
 # Project imports
 # -------------------------------------------------
-
-
 import src.few_shot.prototypical.few_shot as few_shot_emb
-import src.few_shot.prototypical.classify as emb_classify
-
 
 # -------------------------------------------------
 # Helpers
@@ -54,16 +46,8 @@ DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
 DEFAULT_MODEL = "mistral:7b-instruct"
 
 
-import streamlit as st
-import pandas as pd
-from typing import Dict, List, Optional
-
 def embeddings_section_ui(
-    df: pd.DataFrame,
-    labels: List[str],
-    do_full: bool,
-    sample_n: int,
-    default_text_col: Optional[str]
+    df: pd.DataFrame, labels: list[str], do_full: bool, sample_n: int, default_text_col: str | None
 ) -> None:
     if df is None or len(labels) == 0:
         return
@@ -121,25 +105,29 @@ def embeddings_section_ui(
         use_multi = emb_card.toggle("Mode multi-label", value=False)
 
         # --------- Constitution des shots / defs ---------
-        shots: Dict[str, List[str]] = {}
-        label_defs: Dict[str, str] = {}
+        shots: dict[str, list[str]] = {}
+        label_defs: dict[str, str] = {}
 
-        few_shot_embedding = few_shot_emb.FewShotExperiment(model_name=emb_model_name)  # initialise le modèle d'embeddings
+        few_shot_embedding = few_shot_emb.FewShotExperiment(
+            model_name=emb_model_name
+        )  # initialise le modèle d'embeddings
 
         if shot_source == "CSV labellisé":
             emb_text_col = emb_card.selectbox(
                 "Colonne texte (protos & à classer)",
                 options=list(df.columns),
-                index= ui_helper._compute_select_index(list(df.columns), default_text_col),
+                index=ui_helper._compute_select_index(list(df.columns), default_text_col),
             )
             label_col = emb_card.selectbox(
-                "Colonne label (pour construire les prototypes)",
-                options=list(df.columns)
+                "Colonne label (pour construire les prototypes)", options=list(df.columns)
             )
 
             k_per_label = emb_card.slider(
-                "Exemples par label (pour proto)", 1, 50, 5,
-                help="On prélève les k premières occurrences par label."
+                "Exemples par label (pour proto)",
+                1,
+                50,
+                5,
+                help="On prélève les k premières occurrences par label.",
             )
 
             with emb_card.expander("Définitions des labels (optionnel)"):
@@ -160,23 +148,23 @@ def embeddings_section_ui(
                 if emb_card.button(
                     "✨ Générer automatiquement les définitions (Ollama)",
                     use_container_width=True,
-                    key="btn_gen_defs_csv"
+                    key="btn_gen_defs_csv",
                 ):
                     # 1) Construire des shots à partir du CSV courant
                     tmp = df[[emb_text_col, label_col]].dropna()
                     tmp = tmp[tmp[label_col].astype(str).isin(labels)]
-                    shots_current: Dict[str, List[str]] = {}
+                    shots_current: dict[str, list[str]] = {}
                     for lbl in labels:
                         exs = (
                             tmp[tmp[label_col].astype(str) == lbl][emb_text_col]
-                            .astype(str).head(k_per_label).tolist()
+                            .astype(str)
+                            .head(k_per_label)
+                            .tolist()
                         )
                         if exs:
                             shots_current[lbl] = exs
 
-
                     few_shot_embedding.set_shots(shots_current)
-
 
                     # 2) Appeler le LLM pour définitions concises
                     try:
@@ -212,7 +200,9 @@ def embeddings_section_ui(
             for lbl in labels:
                 exs = (
                     tmp[tmp[label_col].astype(str) == lbl][emb_text_col]
-                    .astype(str).head(k_per_label).tolist()
+                    .astype(str)
+                    .head(k_per_label)
+                    .tolist()
                 )
                 if exs:
                     shots[lbl] = exs
@@ -248,11 +238,13 @@ def embeddings_section_ui(
                 if emb_card.button(
                     "✨ Générer les définitions à partir des exemples saisis (Ollama)",
                     use_container_width=True,
-                    key="btn_gen_defs_manual"
+                    key="btn_gen_defs_manual",
                 ):
                     shots_present = {k: v for k, v in shots.items() if v}
                     if not shots_present:
-                        emb_card.warning("Aucun exemple saisi. Ajoute quelques lignes avant de générer.")
+                        emb_card.warning(
+                            "Aucun exemple saisi. Ajoute quelques lignes avant de générer."
+                        )
                     else:
                         few_shot_embedding.set_shots(shots_present)
 
@@ -266,14 +258,14 @@ def embeddings_section_ui(
                             )
                         except Exception as e:
                             defs_map = {k: "" for k in shots_present}
-                            emb_card.warning(f"LLM indisponible, fallback local utilisé. Détails: {e}")
+                            emb_card.warning(
+                                f"LLM indisponible, fallback local utilisé. Détails: {e}"
+                            )
 
                         # FIX: buffer puis appliquer au prochain run
                         st.session_state["pending_def_map"] = defs_map
                         st.session_state["apply_def_map"] = True
                         st.rerun()
-
-
 
         # --------- Aperçu des prototypes ---------
         with emb_card.expander("Aperçu des prototypes (shots)"):
@@ -291,19 +283,18 @@ def embeddings_section_ui(
         with colA:
             calib_btn = st.button("🧪 Calibrer (leave-one-out)", use_container_width=True)
         with colB:
-            run_embed_btn = st.button("🚀 Lancer (Embeddings)", type="primary", use_container_width=True)
+            run_embed_btn = st.button(
+                "🚀 Lancer (Embeddings)", type="primary", use_container_width=True
+            )
 
         thr_default, mar_default = 0.35, 0.05
         thr_val, mar_val = thr_default, mar_default
 
         if calib_btn:
             try:
-
-                 # >>> IMPORTANT : pousser les données dans l'expérience <<<
+                # >>> IMPORTANT : pousser les données dans l'expérience <<<
                 few_shot_embedding.set_shots(shots)
                 few_shot_embedding.set_definitions(allow_defs=False, label_defs=label_defs)
-
-
 
                 few_shot_embedding.build_prototypes(alpha_def=None)
                 thr_val, mar_val = few_shot_embedding.calibrate()
@@ -316,15 +307,14 @@ def embeddings_section_ui(
         # --------- Classification embeddings ---------
         if run_embed_btn:
             if not shots:
-                emb_card.error("Aucun prototype. Fournis des exemples (CSV labellisé ou saisie manuelle).")
+                emb_card.error(
+                    "Aucun prototype. Fournis des exemples (CSV labellisé ou saisie manuelle)."
+                )
             else:
                 try:
-
                     # >>> IMPORTANT : pousser les données dans l'expérience <<<
                     few_shot_embedding.set_shots(shots)
                     few_shot_embedding.set_definitions(allow_defs=False, label_defs=label_defs)
-
-
 
                     protos = few_shot_embedding.build_prototypes(alpha_def=None)
 
@@ -335,7 +325,9 @@ def embeddings_section_ui(
                         if default_text_col is not None and default_text_col in list(df.columns):
                             classify_col = default_text_col
                         else:
-                            classify_col = emb_card.selectbox("Colonne texte à classer", options=list(df.columns))
+                            classify_col = emb_card.selectbox(
+                                "Colonne texte à classer", options=list(df.columns)
+                            )
 
                     data2 = df.copy()
                     if not do_full:
@@ -347,12 +339,26 @@ def embeddings_section_ui(
 
                     for i, txt in enumerate(data2[classify_col].astype(str).fillna("").tolist()):
                         if use_multi:
-                            r = emb_classify.classify_one_multi(txt, protos, per_label_threshold=max(0.4, thr_val),   embedder = few_shot_embedding.embedder, model_name=emb_model_name)
+                            r = emb_classify.classify_one_multi(
+                                txt,
+                                protos,
+                                per_label_threshold=max(0.4, thr_val),
+                                embedder=few_shot_embedding.embedder,
+                                model_name=emb_model_name,
+                            )
                             res_labels.append(", ".join(r["labels"]))
-                            best = max((list(r["sims"].values()) or [0.0]))
+                            best = max(list(r["sims"].values()) or [0.0])
                             res_conf.append(float(best))
                         else:
-                            r = emb_classify.classify_one(txt, protos, threshold=thr_val, margin=mar_val, allow_other=allow_other, embedder = few_shot_embedding.embedder, model_name=emb_model_name)
+                            r = emb_classify.classify_one(
+                                txt,
+                                protos,
+                                threshold=thr_val,
+                                margin=mar_val,
+                                allow_other=allow_other,
+                                embedder=few_shot_embedding.embedder,
+                                model_name=emb_model_name,
+                            )
                             res_labels.append(r["label"])
                             res_conf.append(r["confidence"])
 
@@ -368,7 +374,10 @@ def embeddings_section_ui(
                         if not use_multi:
                             counts2 = data2["emb_label"].value_counts(dropna=False)
                             out_card.markdown("#### Répartition des labels (Embeddings)")
-                            out_card.dataframe(pd.DataFrame({"label": counts2.index, "count": counts2.values}), use_container_width=True)
+                            out_card.dataframe(
+                                pd.DataFrame({"label": counts2.index, "count": counts2.values}),
+                                use_container_width=True,
+                            )
 
                         csv2 = data2.to_csv(index=False).encode("utf-8")
                         out_card.download_button(

@@ -1,8 +1,10 @@
 """
 Tests unitaires pour le wrapper AutoGluon AutoML.
 """
-import sys
+
 import os
+import sys
+
 import pytest
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
@@ -13,6 +15,7 @@ if src_path not in sys.path:
 # Vérifier si autogluon est installé
 try:
     from autogluon.tabular import TabularPredictor
+
     AUTOGLUON_AVAILABLE = True
 except ImportError:
     AUTOGLUON_AVAILABLE = False
@@ -25,12 +28,15 @@ class TestAutoGluon:
     def test_import_autogluon_wrapper(self):
         """Test l'import du wrapper AutoGluon."""
         from src.automl.supervised.autogluon_wrapper import autoMl_autogluon
+
         assert autoMl_autogluon is not None
 
     def test_autogluon_training(self):
         """Test l'entraînement AutoGluon sur breast_cancer."""
         from pathlib import Path
+
         from sklearn.model_selection import train_test_split
+
         from src.automl.supervised.autogluon_wrapper import autoMl_autogluon
         from src.core.io_utils import load_datasets_breast_cancer
 
@@ -40,8 +46,8 @@ class TestAutoGluon:
         dossier.mkdir(parents=True, exist_ok=True)
 
         df = load_datasets_breast_cancer()
-        X = df.drop(columns=['target'])
-        y = df['target']
+        X = df.drop(columns=["target"])
+        y = df["target"]
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, stratify=y, test_size=0.2, random_state=42
         )

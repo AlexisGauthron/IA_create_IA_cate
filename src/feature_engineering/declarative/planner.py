@@ -1,12 +1,13 @@
 # pipeline.py
 from __future__ import annotations
 
-from typing import Callable, Dict, Any, Optional
-import textwrap
+from collections.abc import Callable
+from typing import Any
 
 from src.analyse.statistiques.config import FEAnalysisConfig
-from src.feature_engineering.declarative.prompt import build_prompt_from_report
 from src.feature_engineering.declarative.parsing import parse_llm_response
+from src.feature_engineering.declarative.prompt import build_prompt_from_report
+
 
 class LLMFeatureEngineeringPipeline:
     """
@@ -25,9 +26,8 @@ class LLMFeatureEngineeringPipeline:
 
     def __init__(
         self,
-        config: Optional[FEAnalysisConfig] = None,
+        config: FEAnalysisConfig | None = None,
         max_features_in_prompt: int = 50,
-
     ) -> None:
         """
         Parameters
@@ -48,15 +48,15 @@ class LLMFeatureEngineeringPipeline:
 
     def analyse_and_plan(
         self,
-        stats: Dict[str, Any],
+        stats: dict[str, Any],
         llm_func: Callable[[str], str],
         *,
-        user_description: Optional[str] = None,
-        extra_instructions: Optional[str] = None,
+        user_description: str | None = None,
+        extra_instructions: str | None = None,
         print_prompt: bool = False,
-        local_llm = False,
-        just_prompt = True,
-    ) -> Dict[str, Any]:
+        local_llm=False,
+        just_prompt=True,
+    ) -> dict[str, Any]:
         """
         Étape complète :
           - analyse du dataset
@@ -66,7 +66,7 @@ class LLMFeatureEngineeringPipeline:
 
         Parameters
         ----------
-        stats : Dict[str, Any] 
+        stats : Dict[str, Any]
             Rapport détaillé json (au format fourni : "context", "basic_stats", "target", "features")
         llm_func : Callable[[str], str]
             Fonction qui appelle le LLM et renvoie une réponse texte.
@@ -119,7 +119,7 @@ class LLMFeatureEngineeringPipeline:
                 "prompt": prompt,
                 "plan": plan,
             }
-        else: 
+        else:
             return {
                 "report": stats,
                 "prompt": prompt,

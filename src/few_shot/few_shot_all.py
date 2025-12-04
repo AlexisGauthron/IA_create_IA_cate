@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -8,12 +8,13 @@ if src_path not in sys.path:
 
 
 import multiprocessing
-if multiprocessing.get_start_method(allow_none=True) != 'spawn':
-    multiprocessing.set_start_method('spawn', force=True)
+
+if multiprocessing.get_start_method(allow_none=True) != "spawn":
+    multiprocessing.set_start_method("spawn", force=True)
 
 
-# Importation pour mac 
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+# Importation pour mac
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
@@ -22,17 +23,13 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 
+from collections.abc import Iterable
 
-from itertools import product
-from typing import Dict, List, Tuple, Optional, Iterable
-import textwrap
-import numpy as np  
+import numpy as np
 
-import src.few_shot.prototypical.embed_texte as f_emb
-import src.few_shot.prototypical.calibrate_proto as cal_emb
-import src.few_shot.prototypical.classify as fews_emb
-import src.few_shot.prototypical.get_definition as get_def
 import src.few_shot.prototypical.few_shot as fews_prot
+import src.few_shot.prototypical.get_definition as get_def
+
 
 class FewShotManager:
     """
@@ -46,29 +43,27 @@ class FewShotManager:
 
     def __init__(
         self,
-        shots: Dict[str, List[str]],
-        tests: Optional[Iterable] = None,
+        shots: dict[str, list[str]],
+        tests: Iterable | None = None,
         model_names: Iterable[str] = (
             "intfloat/multilingual-e5-base",
             "intfloat/multilingual-e5-large",
         ),
         *,
         # définitions des labels
-        label_defs: Optional[Dict[str, str]] = None,
-        defs_kwargs: Optional[Dict] = None,
+        label_defs: dict[str, str] | None = None,
+        defs_kwargs: dict | None = None,
         # grilles d'hyperparamètres
-        grid_alpha: Optional[Dict[str, Iterable]] = None,
-        grid_calib: Optional[Dict[str, Iterable]] = None,
-
+        grid_alpha: dict[str, Iterable] | None = None,
+        grid_calib: dict[str, Iterable] | None = None,
     ) -> None:
-        
         self.shots = shots
         self.tests = list(tests) if tests is not None else []
         self.model_names = list(model_names)
 
         # --- defs : on les calcule une seule fois ici ---
         self.defs_kwargs = defs_kwargs or {}
-        
+
         if label_defs is not None:
             self.label_defs = label_defs
             print(f"[Manager/Defs] {len(self.label_defs)} définitions fournies manuellement.")
@@ -79,21 +74,23 @@ class FewShotManager:
             else:
                 print("[Manager/Defs] Génération automatique des définitions à partir des shots…")
                 if hasattr(get_def, "definition_labels_completes"):
-                    self.label_defs = get_def.definition_labels_completes(self.shots, **self.defs_kwargs)
+                    self.label_defs = get_def.definition_labels_completes(
+                        self.shots, **self.defs_kwargs
+                    )
                 else:
                     # fallback très simple
                     self.label_defs = {
                         lbl: f"Classe '{lbl}' (définition auto basique - manager)"
                         for lbl in self.shots.keys()
                     }
-        print(f"[INFO] Définitions des labels :")
+        print("[INFO] Définitions des labels :")
         for lbl, d in self.label_defs.items():
             print(f"  - {lbl} : {d}")
-            
+
         # --- grilles d'hyperparamètres : une seule source de vérité ---
         # alpha_* : mélange shots / defs
         self.grid_alpha = grid_alpha or {
-            "alpha_def": [None],        # None => alpha adaptatif / classe
+            "alpha_def": [None],  # None => alpha adaptatif / classe
             "alpha_base": [0.30],
             "alpha_max_extra": [0.40],
             "alpha_lam": [6],
@@ -108,8 +105,8 @@ class FewShotManager:
         }
 
         # stockage des résultats
-        self.results: List[Dict] = []
-        self.engines: Dict[str, fews_prot.FewShot_prototypical] = {}   # un moteur par modèle
+        self.results: list[dict] = []
+        self.engines: dict[str, fews_prot.PrototypicalFewShot] = {}  # un moteur par modèle
 
     # ------------------------------------------------------------------ #
     # Lancer les expériences sur tous les modèles
@@ -120,7 +117,7 @@ class FewShotManager:
         mono_label: bool = True,
         multi_label: bool = False,
         multi_label_floor: float = 0.40,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Lance un sweep sur tous les modèles d'embeddings.
         Retourne la liste globale de toutes les configs testées (tous modèles).
@@ -132,20 +129,20 @@ class FewShotManager:
             print("\n" + "#" * 100)
             print(f"[Manager] Modèle embedding = {model_name}")
 
-            # on crée un moteur FewShot_prototypical pour CE modèle
-            engine = fews_prot.FewShot_prototypical(
+            # on crée un moteur PrototypicalFewShot pour CE modèle
+            engine = fews_prot.PrototypicalFewShot(
                 shots=self.shots,
                 tests=self.tests,
                 model_name=model_name,
-                label_defs=self.label_defs,   # les defs sont déjà prêtes
-                defs_kwargs={},               # pas besoin de régénérer dans le moteur
+                label_defs=self.label_defs,  # les defs sont déjà prêtes
+                defs_kwargs={},  # pas besoin de régénérer dans le moteur
             )
 
             # sweep sur ce modèle uniquement
             rows = engine.sweep(
                 grid_alpha=self.grid_alpha,
                 grid_calib=self.grid_calib,
-                defs_kwargs={},                # defs déjà fixées
+                defs_kwargs={},  # defs déjà fixées
                 mono_label=mono_label,
                 multi_label=multi_label,
                 multi_label_floor=multi_label_floor,
@@ -171,7 +168,7 @@ class FewShotManager:
         metric: str = "acc_mono",
         *,
         minimize: bool = False,
-    ) -> Tuple[Dict[str, np.ndarray], Optional[float], Optional[float], Dict]:
+    ) -> tuple[dict[str, np.ndarray], float | None, float | None, dict]:
         """
         Sélectionne la meilleure configuration (tous modèles confondus)
         selon la métrique choisie, puis :
@@ -240,7 +237,7 @@ class FewShotManager:
         self,
         sort_by: str = "acc_mono",
         descending: bool = True,
-        max_rows: Optional[int] = 50,
+        max_rows: int | None = 50,
     ) -> None:
         """
         Affiche un tableau global de toutes les configs de tous les modèles.
@@ -259,10 +256,20 @@ class FewShotManager:
             rows = rows[:max_rows]
 
         col_order = [
-            "model_name", "defs",
-            "alpha_def", "alpha_base", "alpha_max_extra", "alpha_lam",
-            "perc", "class_balanced", "thr_bounds", "mar_bounds",
-            "thr", "mar", "acc_mono", "ml_thr_used",
+            "model_name",
+            "defs",
+            "alpha_def",
+            "alpha_base",
+            "alpha_max_extra",
+            "alpha_lam",
+            "perc",
+            "class_balanced",
+            "thr_bounds",
+            "mar_bounds",
+            "thr",
+            "mar",
+            "acc_mono",
+            "ml_thr_used",
         ]
 
         print("\n=== Résultats globaux (tous modèles) ===\n")

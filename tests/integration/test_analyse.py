@@ -7,9 +7,10 @@ Usage:
     python tests/integration/test_analyse.py --dataset verbatims --target Categorie --with-llm
     python tests/integration/test_analyse.py --dataset titanic --target Survived --provider openai --model gpt-4o
 """
-import sys
-import os
+
 import argparse
+import os
+import sys
 from pathlib import Path
 
 # Ajoute le dossier racine à sys.path
@@ -19,19 +20,20 @@ sys.path.insert(0, str(ROOT_DIR))
 # Configuration environnement
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 import pandas as pd
-from src.core.config import settings
-from src.analyse.path_config import AnalysePathConfig
-import src.analyse.statistiques.report as report
 
+import src.analyse.statistiques.report as report
+from src.analyse.path_config import AnalysePathConfig
+from src.core.config import settings
 
 # =============================================================================
 # Fonctions utilitaires
 # =============================================================================
+
 
 def detect_separator(file_path: Path) -> str:
     """
@@ -39,11 +41,11 @@ def detect_separator(file_path: Path) -> str:
 
     Analyse la première ligne et compte les occurrences des séparateurs courants.
     """
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, encoding="utf-8") as f:
         first_line = f.readline()
 
     # Candidats séparateurs
-    candidates = {',': 0, ';': 0, '\t': 0, '|': 0}
+    candidates = {",": 0, ";": 0, "\t": 0, "|": 0}
     for sep in candidates:
         candidates[sep] = first_line.count(sep)
 
@@ -52,7 +54,7 @@ def detect_separator(file_path: Path) -> str:
 
     # Si aucun séparateur trouvé, défaut à virgule
     if candidates[best_sep] == 0:
-        return ','
+        return ","
 
     return best_sep
 
@@ -70,8 +72,7 @@ def load_data(dataset_name: str) -> pd.DataFrame:
     # Vérifier si le dossier existe
     if not dataset_dir.exists():
         available_datasets = [
-            d.name for d in data_raw_dir.iterdir()
-            if d.is_dir() and not d.name.startswith('.')
+            d.name for d in data_raw_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
         ]
         raise FileNotFoundError(
             f"Dataset '{dataset_name}' non trouvé dans data/raw/.\n"
@@ -93,7 +94,7 @@ def load_data(dataset_name: str) -> pd.DataFrame:
     print(f"[INFO] Séparateur détecté: '{sep}'")
 
     # Charger le CSV
-    df = pd.read_csv(data_path, sep=sep, encoding='utf-8')
+    df = pd.read_csv(data_path, sep=sep, encoding="utf-8")
     print(f"[INFO] Dataset '{dataset_name}' chargé: {len(df)} lignes, {len(df.columns)} colonnes")
 
     return df
@@ -102,6 +103,7 @@ def load_data(dataset_name: str) -> pd.DataFrame:
 # =============================================================================
 # Fonction principale d'analyse
 # =============================================================================
+
 
 def run_analyse(
     dataset_name: str,
@@ -167,7 +169,7 @@ def run_analyse(
     print(f"    - Cible: {target_col}")
 
     # === 3. Générer l'analyse statistique ===
-    print(f"\n[2/4] Génération du rapport statistique...")
+    print("\n[2/4] Génération du rapport statistique...")
 
     try:
         report_data = report.analyze_dataset_for_fe(
@@ -183,7 +185,7 @@ def run_analyse(
         raise
 
     # === 4. Sauvegarder le rapport stats ===
-    print(f"\n[3/4] Sauvegarde du rapport statistique...")
+    print("\n[3/4] Sauvegarde du rapport statistique...")
 
     stats_payload = report_data.get("llm_payload", report_data)
     path_config.save_stats_report(stats_payload)
@@ -218,10 +220,11 @@ def run_analyse(
                 print(f"[ERROR] Erreur lors de l'analyse LLM: {e}")
                 path_config.log(f"ERREUR LLM: {e}")
                 import traceback
+
                 traceback.print_exc()
                 only_stats = True
     else:
-        print(f"\n[4/4] Mode stats only - pas d'analyse LLM")
+        print("\n[4/4] Mode stats only - pas d'analyse LLM")
 
     # === 6. Sauvegarder les métadonnées ===
     path_config.save_analyse_metadata(
@@ -238,7 +241,7 @@ def run_analyse(
     print("\n" + "=" * 70)
     print("  ANALYSE TERMINEE")
     print("=" * 70)
-    print(f"\nFichiers générés:")
+    print("\nFichiers générés:")
     for name, path in path_config.get_all_paths().items():
         if Path(path).exists():
             print(f"  - {name}: {path}")
@@ -252,6 +255,7 @@ def run_analyse(
 # CLI
 # =============================================================================
 
+
 def main():
     """Point d'entrée principal avec arguments CLI."""
     parser = argparse.ArgumentParser(
@@ -264,51 +268,30 @@ Exemples:
   python tests/integration/test_analyse.py --dataset titanic --target Survived --with-llm --model gpt-4o
 
 Le séparateur CSV est auto-détecté (virgule, point-virgule, tabulation, pipe).
-        """
+        """,
     )
 
     # Paramètres requis
     parser.add_argument(
-        "--dataset", "-d",
-        type=str,
-        required=True,
-        help="[REQUIS] Nom du dataset dans data/raw/"
+        "--dataset", "-d", type=str, required=True, help="[REQUIS] Nom du dataset dans data/raw/"
     )
     parser.add_argument(
-        "--target", "-t",
-        type=str,
-        required=True,
-        help="[REQUIS] Colonne cible à prédire"
+        "--target", "-t", type=str, required=True, help="[REQUIS] Colonne cible à prédire"
     )
 
     # Paramètres optionnels
     parser.add_argument(
-        "--project", "-p",
-        type=str,
-        default=None,
-        help="Nom du projet (défaut: nom du dataset)"
+        "--project", "-p", type=str, default=None, help="Nom du projet (défaut: nom du dataset)"
     )
-    parser.add_argument(
-        "--with-llm",
-        action="store_true",
-        help="Activer l'analyse LLM interactive"
-    )
+    parser.add_argument("--with-llm", action="store_true", help="Activer l'analyse LLM interactive")
     parser.add_argument(
         "--provider",
         choices=["openai", "ollama"],
         default="openai",
-        help="Provider LLM (défaut: openai)"
+        help="Provider LLM (défaut: openai)",
     )
-    parser.add_argument(
-        "--model",
-        default="gpt-4o-mini",
-        help="Modèle LLM (défaut: gpt-4o-mini)"
-    )
-    parser.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-        help="Mode silencieux"
-    )
+    parser.add_argument("--model", default="gpt-4o-mini", help="Modèle LLM (défaut: gpt-4o-mini)")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Mode silencieux")
 
     args = parser.parse_args()
 
@@ -326,7 +309,3 @@ Le séparateur CSV est auto-détecté (virgule, point-virgule, tabulation, pipe)
 
 if __name__ == "__main__":
     main()
-
-
-
-      

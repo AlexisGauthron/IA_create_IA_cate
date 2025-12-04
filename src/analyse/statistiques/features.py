@@ -1,25 +1,26 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, Sequence, List, Tuple, Optional
+from collections.abc import Sequence
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
-from .config import FEAnalysisConfig
-
 # Dataclasses pour le LLM
 from src.analyse.dataset.features import (
+    CategoricalStats,
     FeatureSummaryForLLM,
     NumericStats,
-    CategoricalStats,
     TextStats,
 )
-
 from src.analyse.statistiques.features_types import (
-    _build_text_stats,
-    _build_numeric_stats,
     _build_categorical_stats,
+    _build_numeric_stats,
+    _build_text_stats,
 )
+
+from .config import FEAnalysisConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,13 @@ logger = logging.getLogger(__name__)
 # Fonctions utilitaires (privées)
 # ----------------------------------------------------------------------
 
+
 def _determine_role(
     series: pd.Series,
     n_unique: int,
     unique_ratio: float,
     config: FEAnalysisConfig,
-) -> Tuple[str, bool]:
+) -> tuple[str, bool]:
     """
     Détermine le rôle logique d'une colonne.
 
@@ -49,7 +51,7 @@ def _determine_role(
     non_na_values = series.dropna().unique().tolist()
     is_bool_values = False
     if len(non_na_values) > 0:
-        bool_like_set = {0, 1, True, False}
+        bool_like_set = {0, 1}
         try:
             is_bool_values = set(non_na_values).issubset(bool_like_set)
         except TypeError:
@@ -82,14 +84,14 @@ def _detect_flags(
     n_unique: int,
     unique_ratio: float,
     config: FEAnalysisConfig,
-) -> Tuple[List[str], bool, bool, bool]:
+) -> tuple[list[str], bool, bool, bool]:
     """
     Détecte les flags utiles pour le FE.
 
     Returns:
         Tuple[flags, is_constant, is_id_like, high_cardinality]
     """
-    is_constant = (n_unique <= 1)
+    is_constant = n_unique <= 1
 
     is_id_like_name = any(key in col_name.lower() for key in ["id", "uuid", "guid"])
     is_id_like_ratio = unique_ratio > config.id_unique_ratio_threshold
@@ -100,7 +102,7 @@ def _detect_flags(
         high_cardinality = True
 
     # Construction des flags
-    flags: List[str] = []
+    flags: list[str] = []
     if is_constant:
         flags.append("CONSTANT")
     if is_id_like:
@@ -120,20 +122,28 @@ def _generate_recommendations(
     high_cardinality: bool,
     n_unique: int,
     config: FEAnalysisConfig,
-) -> Tuple[List[str], List[str], List[str], Any, Optional[NumericStats], Optional[CategoricalStats], Optional[TextStats]]:
+) -> tuple[
+    list[str],
+    list[str],
+    list[str],
+    Any,
+    NumericStats | None,
+    CategoricalStats | None,
+    TextStats | None,
+]:
     """
     Génère les notes, recommandations et hints FE selon le rôle.
 
     Returns:
         Tuple[notes, recommendations, fe_hints, extra_info, numeric_stats, categorical_stats, text_stats]
     """
-    notes: List[str] = []
-    recommendations: List[str] = []
-    fe_hints: List[str] = []
+    notes: list[str] = []
+    recommendations: list[str] = []
+    fe_hints: list[str] = []
     extra_info: Any = None
-    numeric_stats: Optional[NumericStats] = None
-    categorical_stats: Optional[CategoricalStats] = None
-    text_stats: Optional[TextStats] = None
+    numeric_stats: NumericStats | None = None
+    categorical_stats: CategoricalStats | None = None
+    text_stats: TextStats | None = None
 
     n_rows = len(series)
 
@@ -168,8 +178,15 @@ def _generate_recommendations(
 
     elif role == "categorical":
         notes, recommendations, fe_hints, categorical_stats = _recommendations_categorical(
-            series, notes, recommendations, fe_hints, missing_rate,
-            high_cardinality, n_unique, n_rows, config
+            series,
+            notes,
+            recommendations,
+            fe_hints,
+            missing_rate,
+            high_cardinality,
+            n_unique,
+            n_rows,
+            config,
         )
 
     elif role == "text":
@@ -194,16 +211,24 @@ def _generate_recommendations(
         )
         fe_hints.append("check_semantics")
 
-    return notes, recommendations, fe_hints, extra_info, numeric_stats, categorical_stats, text_stats
+    return (
+        notes,
+        recommendations,
+        fe_hints,
+        extra_info,
+        numeric_stats,
+        categorical_stats,
+        text_stats,
+    )
 
 
 def _recommendations_numeric(
     series: pd.Series,
-    notes: List[str],
-    recommendations: List[str],
-    fe_hints: List[str],
+    notes: list[str],
+    recommendations: list[str],
+    fe_hints: list[str],
     missing_rate: float,
-) -> Tuple[List[str], List[str], List[str], Dict[str, Any], NumericStats]:
+) -> tuple[list[str], list[str], list[str], dict[str, Any], NumericStats]:
     """Génère recommandations pour une feature numérique."""
     desc = series.describe(percentiles=[0.05, 0.25, 0.5, 0.75, 0.95])
     skew = series.dropna().skew() if series.notna().any() else np.nan
@@ -224,9 +249,7 @@ def _recommendations_numeric(
     recommendations.append(
         "Standardisation ou normalisation recommandée pour modèles linéaires / SVM / KNN."
     )
-    recommendations.append(
-        "Winsorisation ou clipping possible pour limiter l'impact des outliers."
-    )
+    recommendations.append("Winsorisation ou clipping possible pour limiter l'impact des outliers.")
     fe_hints.append("candidate_for_scaling")
 
     numeric_stats = _build_numeric_stats(series)
@@ -236,15 +259,15 @@ def _recommendations_numeric(
 
 def _recommendations_categorical(
     series: pd.Series,
-    notes: List[str],
-    recommendations: List[str],
-    fe_hints: List[str],
+    notes: list[str],
+    recommendations: list[str],
+    fe_hints: list[str],
     missing_rate: float,
     high_cardinality: bool,
     n_unique: int,
     n_rows: int,
     config: FEAnalysisConfig,
-) -> Tuple[List[str], List[str], List[str], CategoricalStats]:
+) -> tuple[list[str], list[str], list[str], CategoricalStats]:
     """Génère recommandations pour une feature catégorielle."""
     if high_cardinality:
         notes.append(f"Haute cardinalité : {n_unique} modalités.")
@@ -254,9 +277,7 @@ def _recommendations_categorical(
         )
         fe_hints.append("use_target_encoding_or_hashing")
     else:
-        recommendations.append(
-            "One-hot encoding ou encodage ordinal selon le modèle choisi."
-        )
+        recommendations.append("One-hot encoding ou encodage ordinal selon le modèle choisi.")
         fe_hints.append("candidate_for_one_hot")
 
     if missing_rate > 0:
@@ -277,12 +298,12 @@ def _recommendations_categorical(
 
 def _recommendations_text(
     series: pd.Series,
-    notes: List[str],
-    recommendations: List[str],
-    fe_hints: List[str],
+    notes: list[str],
+    recommendations: list[str],
+    fe_hints: list[str],
     missing_rate: float,
     config: FEAnalysisConfig,
-) -> Tuple[List[str], List[str], List[str], TextStats]:
+) -> tuple[list[str], list[str], list[str], TextStats]:
     """Génère recommandations pour une feature texte."""
     notes.append("Colonne texte / semi-structurée.")
     recommendations.append(
@@ -307,11 +328,11 @@ def _recommendations_text(
 
 
 def _recommendations_datetime(
-    notes: List[str],
-    recommendations: List[str],
-    fe_hints: List[str],
+    notes: list[str],
+    recommendations: list[str],
+    fe_hints: list[str],
     missing_rate: float,
-) -> Tuple[List[str], List[str], List[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     """Génère recommandations pour une feature datetime."""
     notes.append("Colonne de type date/temps.")
     recommendations.append(
@@ -330,11 +351,11 @@ def _recommendations_datetime(
 
 
 def _recommendations_boolean(
-    notes: List[str],
-    recommendations: List[str],
-    fe_hints: List[str],
+    notes: list[str],
+    recommendations: list[str],
+    fe_hints: list[str],
     missing_rate: float,
-) -> Tuple[List[str], List[str], List[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     """Génère recommandations pour une feature booléenne."""
     recommendations.append("Encodage 0/1 ou True/False -> 1/0.")
     fe_hints.append("binary_feature")
@@ -353,7 +374,7 @@ def _determine_llm_type(
     high_cardinality: bool,
     is_constant: bool,
     is_id_like: bool,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """
     Détermine le rôle et type pour le LLM.
 
@@ -399,26 +420,20 @@ def _build_feature_summary(
     n_unique: int,
     unique_ratio: float,
     missing_rate: float,
-    flags: List[str],
-    notes: List[str],
-    fe_hints: List[str],
+    flags: list[str],
+    notes: list[str],
+    fe_hints: list[str],
     llm_role: str,
     inferred_type: str,
-    numeric_stats: Optional[NumericStats],
-    categorical_stats: Optional[CategoricalStats],
-    text_stats: Optional[TextStats],
+    numeric_stats: NumericStats | None,
+    categorical_stats: CategoricalStats | None,
+    text_stats: TextStats | None,
     config: FEAnalysisConfig,
 ) -> FeatureSummaryForLLM:
     """Construit la dataclass FeatureSummaryForLLM."""
     n_examples = getattr(config, "example_values_per_col", 5)
 
-    example_values = (
-        series.dropna()
-        .astype(str)
-        .drop_duplicates()
-        .head(n_examples)
-        .tolist()
-    )
+    example_values = series.dropna().astype(str).drop_duplicates().head(n_examples).tolist()
 
     return FeatureSummaryForLLM(
         name=col,
@@ -449,9 +464,9 @@ def _collect_warnings(
     is_id_like: bool,
     high_cardinality: bool,
     n_unique: int,
-) -> List[str]:
+) -> list[str]:
     """Collecte les warnings pour une feature."""
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     if is_id_like:
         warnings.append(f"[{col}] ressemble à un identifiant (id-like).")
@@ -469,11 +484,12 @@ def _collect_warnings(
 # Fonction principale (refactorisée)
 # ----------------------------------------------------------------------
 
+
 def analyze_features(
     df: pd.DataFrame,
     feature_cols: Sequence[str],
     config: FEAnalysisConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyse les colonnes de features d'un DataFrame pour guider le feature engineering.
 
@@ -488,9 +504,9 @@ def analyze_features(
         - "warnings": liste des warnings
         - "llm_features": dict {col: FeatureSummaryForLLM}
     """
-    features_info: Dict[str, Any] = {}
-    all_warnings: List[str] = []
-    llm_features: Dict[str, FeatureSummaryForLLM] = {}
+    features_info: dict[str, Any] = {}
+    all_warnings: list[str] = []
+    llm_features: dict[str, FeatureSummaryForLLM] = {}
 
     n_rows = len(df)
 
@@ -515,11 +531,16 @@ def analyze_features(
         )
 
         # 3) Générer recommandations et stats
-        notes, recommendations, fe_hints, extra_info, numeric_stats, categorical_stats, text_stats = (
-            _generate_recommendations(
-                series, role, missing_rate, is_constant, is_id_like,
-                high_cardinality, n_unique, config
-            )
+        (
+            notes,
+            recommendations,
+            fe_hints,
+            extra_info,
+            numeric_stats,
+            categorical_stats,
+            text_stats,
+        ) = _generate_recommendations(
+            series, role, missing_rate, is_constant, is_id_like, high_cardinality, n_unique, config
         )
 
         # 4) Déterminer type LLM

@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -8,12 +8,13 @@ if src_path not in sys.path:
 
 
 import multiprocessing
-if multiprocessing.get_start_method(allow_none=True) != 'spawn':
-    multiprocessing.set_start_method('spawn', force=True)
+
+if multiprocessing.get_start_method(allow_none=True) != "spawn":
+    multiprocessing.set_start_method("spawn", force=True)
 
 
-# Importation pour mac 
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+# Importation pour mac
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
@@ -21,59 +22,75 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 
-from itertools import product
-from typing import Dict, List, Tuple, Optional, Iterable
 import textwrap
-import numpy as np  
+from collections.abc import Iterable
+from itertools import product
 
-import src.few_shot.prototypical.embed_texte as f_emb
+import numpy as np
+
 import src.few_shot.prototypical.calibrate_proto as cal_emb
 import src.few_shot.prototypical.classify as fews_emb
+import src.few_shot.prototypical.embed_texte as f_emb
 import src.few_shot.prototypical.get_definition as get_def
 
 
-def _freeze_shots(shots: Dict[str, List[str]]) -> Tuple:
+def _freeze_shots(shots: dict[str, list[str]]) -> tuple:
     return tuple((lbl, tuple(shots[lbl])) for lbl in sorted(shots))
 
 
-class FewShot_prototypical:
+# =============================================================================
+# Classe PrototypicalFewShot
+# =============================================================================
+# Renommée de 'FewShot_prototypical' vers 'PrototypicalFewShot'
+# Raison: 'FewShot_prototypical' utilisait un underscore dans le nom de classe
+#         Les classes doivent être en PascalCase sans underscore
+# =============================================================================
 
-    def __init__(self,
-                 shots: Optional[Dict[str, List[str]]] = None,
-                 tests: Optional[Iterable] = None,
-                 model_name: str = "intfloat/multilingual-e5-large",
-                 label_defs: Optional[Dict[str, str]] = None,
-                 defs_kwargs: Optional[Dict] = None,
-                 ):
+
+class PrototypicalFewShot:
+    """Classe principale pour le few-shot learning avec réseaux prototypiques."""
+
+    def __init__(
+        self,
+        shots: dict[str, list[str]] | None = None,
+        tests: Iterable | None = None,
+        model_name: str = "intfloat/multilingual-e5-large",
+        label_defs: dict[str, str] | None = None,
+        defs_kwargs: dict | None = None,
+    ):
         """
         defs_kwargs : paramètres optionnels passés à get_definition pour la
         génération automatique des définitions si label_defs est None.
         """
         if shots is None:
-            print("[Init] Aucun shots fourni pour l’instant — vous pourrez les ajouter via set_shots()/add_shot().")
-            self.shots: Dict[str, List[str]] = {}
+            print(
+                "[Init] Aucun shots fourni pour l’instant — vous pourrez les ajouter via set_shots()/add_shot()."
+            )
+            self.shots: dict[str, list[str]] = {}
         else:
             self.shots = shots
 
         self.tests = list(tests) if tests is not None else []
         self.model_name = model_name
-        self.embedder = f_emb.Embed_textes(self.model_name)
+        self.embedder = f_emb.TextEmbedder(self.model_name)
 
         # Clé pour les shots
         if self.shots:
-            self._shots_key: Optional[Tuple] = _freeze_shots(self.shots)
+            self._shots_key: tuple | None = _freeze_shots(self.shots)
         else:
             self._shots_key = None
 
         # label_defs + clé associée seront définis via set_definitions
-        self.label_defs: Optional[Dict[str, str]] = None
-        self._defs_key: Optional[Tuple] = None
+        self.label_defs: dict[str, str] | None = None
+        self._defs_key: tuple | None = None
 
         # objets/caches
-        self._calibrator: Optional[cal_emb.Calibrate_proto] = None
+        self._calibrator: cal_emb.PrototypeCalibrator | None = None
         self._protos = None
-        self._protos_key: Optional[Tuple] = None       # clé qui décrit comment les protos ont été construits
-        self._thrmar_cache: Dict[Tuple, Tuple[float, float]] = {}
+        self._protos_key: tuple | None = (
+            None  # clé qui décrit comment les protos ont été construits
+        )
+        self._thrmar_cache: dict[tuple, tuple[float, float]] = {}
 
         self.rows = None  # pour le sweep
 
@@ -87,7 +104,7 @@ class FewShot_prototypical:
     # Gestion des shots & définitions
     # ------------------------------------------------------------------ #
 
-    def set_shots(self, shots: Dict[str, List[str]]) -> None:
+    def set_shots(self, shots: dict[str, list[str]]) -> None:
         """
         Met à jour les shots et la clé associée.
         ⚠️ Ne recalcule pas automatiquement les définitions : appelez
@@ -101,9 +118,7 @@ class FewShot_prototypical:
         self._protos_key = None
         self._thrmar_cache.clear()
 
-    def set_definitions(self,
-                        label_defs: Optional[Dict[str, str]] = None,
-                        **defs_kwargs) -> None:
+    def set_definitions(self, label_defs: dict[str, str] | None = None, **defs_kwargs) -> None:
         """
         Définit ou génère les définitions de labels.
 
@@ -121,10 +136,14 @@ class FewShot_prototypical:
         else:
             # 2) Cas génération auto à partir des shots
             if not self.shots:
-                print("[Defs] Aucune définition fournie et aucun shots → pas de définitions pour l’instant.")
+                print(
+                    "[Defs] Aucune définition fournie et aucun shots → pas de définitions pour l’instant."
+                )
                 self.label_defs = None
             else:
-                print("[Defs] Aucune définition fournie — génération automatique à partir des shots…")
+                print(
+                    "[Defs] Aucune définition fournie — génération automatique à partir des shots…"
+                )
                 # 💡 ADAPTE ICI à ton API réelle dans get_definition.py
                 # Exemple hypothétique :
                 #
@@ -158,33 +177,40 @@ class FewShot_prototypical:
             self._calibrator.label_defs = self.label_defs
 
     # ---------- Prototypes (avec tes prints) ----------
-    def build_prototypes(self,
-                         *,
-                         alpha_def: Optional[float] = None,
-                         alpha_base: float = 0.30,
-                         alpha_max_extra: float = 0.40,
-                         alpha_lam: int = 6):
-        key = ("protos",
-               self._shots_key,
-               self._defs_key,
-               self.model_name,
-               alpha_def, alpha_base, alpha_max_extra, alpha_lam)
+    def build_prototypes(
+        self,
+        *,
+        alpha_def: float | None = None,
+        alpha_base: float = 0.30,
+        alpha_max_extra: float = 0.40,
+        alpha_lam: int = 6,
+    ):
+        key = (
+            "protos",
+            self._shots_key,
+            self._defs_key,
+            self.model_name,
+            alpha_def,
+            alpha_base,
+            alpha_max_extra,
+            alpha_lam,
+        )
 
         if key != self._protos_key:
             print("[Build] Construction des prototypes…")
-            self._calibrator = cal_emb.Calibrate_proto(
+            self._calibrator = cal_emb.PrototypeCalibrator(
                 shots=self.shots,
                 label_defs=self.label_defs,
-                alpha=alpha_def,                   # None => alpha adaptatif par classe
+                alpha=alpha_def,  # None => alpha adaptatif par classe
                 alpha_base=alpha_base,
                 alpha_max_extra=alpha_max_extra,
                 alpha_lam=alpha_lam,
                 model_name=self.model_name,
-                embedder=self.embedder
+                embedder=self.embedder,
             )
             self._protos = self._calibrator.build_prototypes()
             self._protos_key = key
-            self._thrmar_cache.clear()           # nouveaux protos => recalibration nécessaire
+            self._thrmar_cache.clear()  # nouveaux protos => recalibration nécessaire
         else:
             # pas nécessaire mais utile pour suivre
             print("[Build] Prototypes déjà à jour (cache).")
@@ -192,12 +218,14 @@ class FewShot_prototypical:
         return self._protos
 
     # ---------- Calibration (avec tes prints) ----------
-    def calibrate(self,
-                  *,
-                  perc: int = 10,
-                  class_balanced: bool = True,
-                  thr_bounds: Tuple[float, float] = (0.20, 0.60),
-                  mar_bounds: Tuple[float, float] = (0.02, 0.15)) -> Tuple[float, float]:
+    def calibrate(
+        self,
+        *,
+        perc: int = 10,
+        class_balanced: bool = True,
+        thr_bounds: tuple[float, float] = (0.20, 0.60),
+        mar_bounds: tuple[float, float] = (0.02, 0.15),
+    ) -> tuple[float, float]:
         if self._calibrator is None:
             raise RuntimeError("Appelle d'abord build_prototypes(...)")
 
@@ -217,8 +245,13 @@ class FewShot_prototypical:
         return thr, mar
 
     # ---------- Tests (avec tes prints) ----------
-    def test_mono(self, threshold: float, margin: float, allow_other: bool = True,
-                  tests: Optional[Iterable] = None) -> float:
+    def test_mono(
+        self,
+        threshold: float,
+        margin: float,
+        allow_other: bool = True,
+        tests: Iterable | None = None,
+    ) -> float:
         tests = list(tests) if tests is not None else self.tests
         print("\n===== Test mono-label (classify_one) =====")
         ok = 0
@@ -231,7 +264,7 @@ class FewShot_prototypical:
                 margin=margin,
                 allow_other=allow_other,
                 embedder=self.embedder,
-                model_name=self.model_name
+                model_name=self.model_name,
             )
             pred, conf = res["label"], res["confidence"]
             mark = "OK" if pred == expected else "!!"
@@ -243,8 +276,10 @@ class FewShot_prototypical:
         print(f"[Score] Exact-match accuracy: {ok}/{len(tests)} = {acc:.1%}")
         return acc
 
-    def test_multi(self, per_label_threshold: float, texts: Optional[Iterable] = None) -> None:
-        texts = list(texts) if texts is not None else [t for t, _ in self.tests]  # si tests=(text, y)
+    def test_multi(self, per_label_threshold: float, texts: Iterable | None = None) -> None:
+        texts = (
+            list(texts) if texts is not None else [t for t, _ in self.tests]
+        )  # si tests=(text, y)
         ml_thr = per_label_threshold
         print("\n===== Test multi-label (classify_one_multi) =====")
         for text in texts:
@@ -253,41 +288,41 @@ class FewShot_prototypical:
                 self._protos,
                 per_label_threshold=ml_thr,
                 embedder=self.embedder,
-                model_name=self.model_name
+                model_name=self.model_name,
             )
             order = sorted(self._protos.keys(), key=lambda k: res["sims"][k], reverse=True)
             top3 = [(k, res["sims"][k]) for k in order[:3]]
             print("- " + textwrap.fill(text, width=88))
-            print(f"  → labels={res['labels']} | top3=" +
-                  ", ".join(f"{k}:{v:.2f}" for k, v in top3))
-
-
-
+            print(
+                f"  → labels={res['labels']} | top3=" + ", ".join(f"{k}:{v:.2f}" for k, v in top3)
+            )
 
     # ---------- Orchestration « une config » ----------
-    def run_once(self,
-                 *,
-                 mono_label: bool = True,
-                 multi_label: bool = False,
-                 alpha_def: Optional[float] = None,
-                 alpha_base: float = 0.30,
-                 alpha_max_extra: float = 0.60,
-                 alpha_lam: int = 6,
-                 perc: int = 10,
-                 class_balanced: bool = True,
-                 thr_bounds: Tuple[float, float] = (0.15, 0.60),
-                 mar_bounds: Tuple[float, float] = (0.01, 0.15),
-                 multi_label_floor: float = 0.40) -> Tuple[float, float, Optional[float]]:
-
+    def run_once(
+        self,
+        *,
+        mono_label: bool = True,
+        multi_label: bool = False,
+        alpha_def: float | None = None,
+        alpha_base: float = 0.30,
+        alpha_max_extra: float = 0.60,
+        alpha_lam: int = 6,
+        perc: int = 10,
+        class_balanced: bool = True,
+        thr_bounds: tuple[float, float] = (0.15, 0.60),
+        mar_bounds: tuple[float, float] = (0.01, 0.15),
+        multi_label_floor: float = 0.40,
+    ) -> tuple[float, float, float | None]:
         # protos
         self.build_prototypes(
-            alpha_def=alpha_def, alpha_base=alpha_base,
-            alpha_max_extra=alpha_max_extra, alpha_lam=alpha_lam
+            alpha_def=alpha_def,
+            alpha_base=alpha_base,
+            alpha_max_extra=alpha_max_extra,
+            alpha_lam=alpha_lam,
         )
         # calib
         thr, mar = self.calibrate(
-            perc=perc, class_balanced=class_balanced,
-            thr_bounds=thr_bounds, mar_bounds=mar_bounds
+            perc=perc, class_balanced=class_balanced, thr_bounds=thr_bounds, mar_bounds=mar_bounds
         )
         # tests
         acc = None
@@ -298,18 +333,17 @@ class FewShot_prototypical:
             self.test_multi(per_label_threshold=ml_thr)
         return thr, mar, acc
 
-
-
-
     # ---------- Sweep (multi-configs) ----------
-    def sweep(self,
-              grid_alpha: Dict[str, Iterable],
-              grid_calib: Dict[str, Iterable],
-              defs_kwargs: Optional[Dict] = None,
-              *,
-              mono_label: bool = True,
-              multi_label: bool = False,
-              multi_label_floor: float = 0.40) -> List[Dict]:
+    def sweep(
+        self,
+        grid_alpha: dict[str, Iterable],
+        grid_calib: dict[str, Iterable],
+        defs_kwargs: dict | None = None,
+        *,
+        mono_label: bool = True,
+        multi_label: bool = False,
+        multi_label_floor: float = 0.40,
+    ) -> list[dict]:
         defs_kwargs = defs_kwargs or {}
         self.rows = []
 
@@ -317,13 +351,13 @@ class FewShot_prototypical:
         self.set_definitions(**defs_kwargs)
 
         for avals in product(*grid_alpha.values()):
-            aparams = dict(zip(grid_alpha.keys(), avals))
-            print("\n" + "="*86)
+            aparams = dict(zip(grid_alpha.keys(), avals, strict=False))
+            print("\n" + "=" * 86)
             print(f"[Config/Alpha] {aparams}")
             self.build_prototypes(**aparams)
 
             for cvals in product(*grid_calib.values()):
-                cparams = dict(zip(grid_calib.keys(), cvals))
+                cparams = dict(zip(grid_calib.keys(), cvals, strict=False))
                 print(f"[Config/Calib] {cparams}")
                 thr, mar = self.calibrate(**cparams)
 
@@ -333,7 +367,7 @@ class FewShot_prototypical:
                     "thr": round(thr, 4),
                     "mar": round(mar, 4),
                     **aparams,
-                    **cparams
+                    **cparams,
                 }
 
                 if mono_label and self.tests:
@@ -348,13 +382,13 @@ class FewShot_prototypical:
                 self.rows.append(row)
         return self.rows
 
-
-
-    def get_prototypes(self,
-                       *,
-                       which: str = "best",            # "best" | "last" | "index" | "params"
-                       index: Optional[int] = None,
-                       params: Optional[Dict] = None) -> Tuple[Dict[str, np.ndarray], Optional[float], Optional[float], Dict]:
+    def get_prototypes(
+        self,
+        *,
+        which: str = "best",  # "best" | "last" | "index" | "params"
+        index: int | None = None,
+        params: dict | None = None,
+    ) -> tuple[dict[str, np.ndarray], float | None, float | None, dict]:
         """
         Récupère les prototypes + (thr, mar) + la config choisie depuis self.rows,
         reconstruit si nécessaire, et affiche un résumé.
@@ -368,23 +402,37 @@ class FewShot_prototypical:
             print("[Recover] Aucun résultat en mémoire (self.rows). Lance d'abord sweep(...).")
             if self._protos is not None:
                 # renvoie l'état courant à défaut
-                any_thr_mar = next(iter(self._thrmar_cache.values())) if self._thrmar_cache else (None, None)
-                return self._protos, any_thr_mar[0], any_thr_mar[1], {
-                    "source": "current",
-                    "model_name": self.model_name
-                }
+                any_thr_mar = (
+                    next(iter(self._thrmar_cache.values())) if self._thrmar_cache else (None, None)
+                )
+                return (
+                    self._protos,
+                    any_thr_mar[0],
+                    any_thr_mar[1],
+                    {"source": "current", "model_name": self.model_name},
+                )
             return {}, None, None, {}
 
         # --- résumé global ---
         print(f"\n[Sweep] {len(rows)} configurations testées.")
         col_order = [
-            "model_name", "defs",
-            "alpha_def", "alpha_base", "alpha_max_extra", "alpha_lam",
-            "perc", "class_balanced", "thr_bounds", "mar_bounds",
-            "thr", "mar", "acc_mono", "ml_thr_used"
+            "model_name",
+            "defs",
+            "alpha_def",
+            "alpha_base",
+            "alpha_max_extra",
+            "alpha_lam",
+            "perc",
+            "class_balanced",
+            "thr_bounds",
+            "mar_bounds",
+            "thr",
+            "mar",
+            "acc_mono",
+            "ml_thr_used",
         ]
 
-        def _fmt_row(r: Dict) -> str:
+        def _fmt_row(r: dict) -> str:
             return " | ".join(f"{k}={r[k]}" for k in col_order if k in r)
 
         # --- sélection de la config ---
@@ -435,33 +483,50 @@ class FewShot_prototypical:
                 self._thrmar_cache.clear()
 
         # --- reconstruire protos & recalibrer avec EXACTEMENT ces hyperparams ---
-        aparams = {k: pick.get(k) for k in ["alpha_def", "alpha_base", "alpha_max_extra", "alpha_lam"] if k in pick}
+        aparams = {
+            k: pick.get(k)
+            for k in ["alpha_def", "alpha_base", "alpha_max_extra", "alpha_lam"]
+            if k in pick
+        }
         self.build_prototypes(**aparams)
 
-        cparams = {k: pick.get(k) for k in ["perc", "class_balanced", "thr_bounds", "mar_bounds"] if k in pick}
+        cparams = {
+            k: pick.get(k)
+            for k in ["perc", "class_balanced", "thr_bounds", "mar_bounds"]
+            if k in pick
+        }
         thr, mar = self.calibrate(**cparams)
 
         # On renvoie l'état reconstruit + la config choisie
         return self._protos, thr, mar, pick
 
-
-
-    def print_all_results(self, sort_by: Optional[str] = "acc_mono", descending: bool = True) -> None:
-
+    def print_all_results(self, sort_by: str | None = "acc_mono", descending: bool = True) -> None:
         if not self.rows:
             print("[Sweep] Aucun résultat en mémoire. Lance d'abord sweep(...).")
             return
 
         if sort_by is not None:
-            rows = sorted(self.rows, key=lambda r: r.get(sort_by, float("-inf")), reverse=descending)
+            rows = sorted(
+                self.rows, key=lambda r: r.get(sort_by, float("-inf")), reverse=descending
+            )
         else:
             rows = self.rows
 
         col_order = [
-            "model_name", "defs",
-            "alpha_def", "alpha_base", "alpha_max_extra", "alpha_lam",
-            "perc", "class_balanced", "thr_bounds", "mar_bounds",
-            "thr", "mar", "acc_mono", "ml_thr_used"
+            "model_name",
+            "defs",
+            "alpha_def",
+            "alpha_base",
+            "alpha_max_extra",
+            "alpha_lam",
+            "perc",
+            "class_balanced",
+            "thr_bounds",
+            "mar_bounds",
+            "thr",
+            "mar",
+            "acc_mono",
+            "ml_thr_used",
         ]
         print("\n=== Résultats complets du sweep ===\n")
         for i, r in enumerate(rows):

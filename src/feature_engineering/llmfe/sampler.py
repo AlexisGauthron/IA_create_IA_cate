@@ -1,19 +1,19 @@
-""" Class for sampling new programs. """
+"""Class for sampling new programs."""
+
 from __future__ import annotations
-from abc import ABC, abstractmethod
 
-from typing import Collection, Sequence, Type, Optional
-import numpy as np
-import time
-
-from src.feature_engineering.llmfe import evaluator
-from src.feature_engineering.llmfe import buffer
-from src.feature_engineering.llmfe import config as config_lib
-import requests
-import json
 import http.client
+import json
 import os
+import time
+from abc import ABC, abstractmethod
+from collections.abc import Collection, Sequence
 
+import numpy as np
+import requests
+
+from src.feature_engineering.llmfe import buffer, evaluator
+from src.feature_engineering.llmfe import config as config_lib
 
 
 class LLM(ABC):
@@ -21,29 +21,29 @@ class LLM(ABC):
         self._samples_per_prompt = samples_per_prompt
 
     def _draw_sample(self, prompt: str) -> str:
-        """ Return a predicted continuation of `prompt`."""
-        raise NotImplementedError('Must provide a language model.')
+        """Return a predicted continuation of `prompt`."""
+        raise NotImplementedError("Must provide a language model.")
 
     @abstractmethod
     def draw_samples(self, prompt: str) -> Collection[str]:
-        """ Return multiple predicted continuations of `prompt`. """
+        """Return multiple predicted continuations of `prompt`."""
         return [self._draw_sample(prompt) for _ in range(self._samples_per_prompt)]
 
 
-
 class Sampler:
-    """ Node that samples program skeleton continuations and sends them for analysis. """
+    """Node that samples program skeleton continuations and sends them for analysis."""
+
     _global_samples_nums: int = 1
 
     def __init__(
-            self,
-            database: buffer.ExperienceBuffer,
-            evaluators: Sequence[evaluator.Evaluator],
-            samples_per_prompt: int,
-            meta_data: dict,
-            config: config_lib.Config,
-            max_sample_nums: Optional[int] = None,
-            llm_class: Type[LLM] = LLM,
+        self,
+        database: buffer.ExperienceBuffer,
+        evaluators: Sequence[evaluator.Evaluator],
+        samples_per_prompt: int,
+        meta_data: dict,
+        config: config_lib.Config,
+        max_sample_nums: int | None = None,
+        llm_class: type[LLM] = LLM,
     ):
         self._samples_per_prompt = samples_per_prompt
         self._database = database
@@ -54,18 +54,20 @@ class Sampler:
         self.config = config
         self.__class__._global_samples_nums = 1
 
-    
     def sample(self, **kwargs):
-        """ Continuously gets prompts, samples programs, sends them for analysis. """
+        """Continuously gets prompts, samples programs, sends them for analysis."""
         while True:
             # stop the search process if hit global max sample nums
-            if self._max_sample_nums and self.__class__._global_samples_nums >= self._max_sample_nums:
+            if (
+                self._max_sample_nums
+                and self.__class__._global_samples_nums >= self._max_sample_nums
+            ):
                 print("Max Sample atteint !\n")
                 break
             print("BOUCLEEEEEEEEEEEEE : ")
             prompt = self._database.get_prompt()
             reset_time = time.time()
-            samples = self._llm.draw_samples(prompt.code,self.config)
+            samples = self._llm.draw_samples(prompt.code, self.config)
             print("here")
             sample_time = (time.time() - reset_time) / self._samples_per_prompt
 
@@ -83,7 +85,7 @@ class Sampler:
                     prompt.version_generated,
                     **kwargs,
                     global_sample_nums=cur_global_sample_nums,
-                    sample_time=sample_time
+                    sample_time=sample_time,
                 )
 
     def _get_global_sample_nums(self) -> int:
@@ -94,7 +96,6 @@ class Sampler:
 
     def _global_sample_nums_plus_one(self):
         self.__class__._global_samples_nums += 1
-
 
 
 def _extract_body(sample: str, config: config_lib.Config) -> str:
@@ -121,34 +122,33 @@ def _extract_body(sample: str, config: config_lib.Config) -> str:
     lines = sample.splitlines()
     func_body_lineno = 0
     find_def_declaration = False
-    
+
     for lineno, line in enumerate(lines):
         # find the first 'def' program statement in the response
-        if line[:3] == 'def':
+        if line[:3] == "def":
             func_body_lineno = lineno
             find_def_declaration = True
             break
-    
+
     if find_def_declaration:
         # for gpt APIs
         if config.use_api:
-            code = ''
-            for line in lines[func_body_lineno + 1:]:
-                code += line + '\n'
-        
+            code = ""
+            for line in lines[func_body_lineno + 1 :]:
+                code += line + "\n"
+
         # for mixtral
         else:
-            code = ''
-            indent = '    '
-            for line in lines[func_body_lineno + 1:]:
+            code = ""
+            indent = "    "
+            for line in lines[func_body_lineno + 1 :]:
                 if line[:4] != indent:
                     line = indent + line
-                code += line + '\n'
-        
-        return code
-    
-    return sample
+                code += line + "\n"
 
+        return code
+
+    return sample
 
 
 class LocalLLM(LLM):
@@ -160,13 +160,12 @@ class LocalLLM(LLM):
         super().__init__(samples_per_prompt)
 
         url = "http://127.0.0.1:5000/completions"
-        instruction_prompt = ("You are a helpful assistant tasked with discovering new features/ dropping less important feaures for the given prediction task. \
-                             Complete the 'modify_features' function below, considering the physical meaning and relationships of inputs.\n\n")
+        instruction_prompt = "You are a helpful assistant tasked with discovering new features/ dropping less important feaures for the given prediction task. \
+                             Complete the 'modify_features' function below, considering the physical meaning and relationships of inputs.\n\n"
         self._batch_inference = batch_inference
         self._url = url
         self._instruction_prompt = instruction_prompt
         self._trim = trim
-
 
     def draw_samples(self, prompt: str, config: config_lib.Config) -> Collection[str]:
         """Returns multiple equation program skeleton hypotheses for the given `prompt`."""
@@ -175,10 +174,9 @@ class LocalLLM(LLM):
         else:
             return self._draw_samples_local(prompt, config)
 
-
-    def _draw_samples_local(self, prompt: str, config: config_lib.Config) -> Collection[str]:    
+    def _draw_samples_local(self, prompt: str, config: config_lib.Config) -> Collection[str]:
         # instruction
-        prompt = '\n'.join([self._instruction_prompt, prompt])
+        prompt = "\n".join([self._instruction_prompt, prompt])
         while True:
             try:
                 all_samples = []
@@ -195,15 +193,14 @@ class LocalLLM(LLM):
                 # trim equation program skeleton body from samples
                 if self._trim:
                     all_samples = [_extract_body(sample, config) for sample in all_samples]
-                
+
                 return all_samples
             except Exception:
                 continue
 
-
     def _draw_samples_api(self, prompt: str, config) -> Collection[str]:
         all_samples = []
-        prompt = '\n'.join([self._instruction_prompt, prompt])
+        prompt = "\n".join([self._instruction_prompt, prompt])
         max_retries = 5  # limiter le nombre de tentatives
 
         for _ in range(self._samples_per_prompt):
@@ -212,17 +209,19 @@ class LocalLLM(LLM):
                 try:
                     # Connexion HTTPS avec timeout
                     conn = http.client.HTTPSConnection("api.openai.com", timeout=30)
-                    
-                    payload = json.dumps({
-                        "max_tokens": 512,
-                        "model": config.api_model,
-                        "messages": [{"role": "user", "content": prompt}]
-                    })
+
+                    payload = json.dumps(
+                        {
+                            "max_tokens": 512,
+                            "model": config.api_model,
+                            "messages": [{"role": "user", "content": prompt}],
+                        }
+                    )
                     # print("[DEBUG] CLE API : ", os.environ.get('API_KEY', ''))
                     headers = {
-                        'Authorization': f"Bearer {os.environ.get('API_KEY', '')}",
-                        'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                        'Content-Type': 'application/json'
+                        "Authorization": f"Bearer {os.environ.get('API_KEY', '')}",
+                        "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                        "Content-Type": "application/json",
                     }
 
                     conn.request("POST", "/v1/chat/completions", payload, headers)
@@ -237,7 +236,7 @@ class LocalLLM(LLM):
                         continue
 
                     data = json.loads(res.read().decode("utf-8"))
-                    response = data['choices'][0]['message']['content']
+                    response = data["choices"][0]["message"]["content"]
 
                     if getattr(self, "_trim", False):
                         response = _extract_body(response, config)
@@ -257,31 +256,28 @@ class LocalLLM(LLM):
 
         return all_samples
 
-    
-    
     def _do_request(self, content: str) -> str:
-        content = content.strip('\n').strip()
+        content = content.strip("\n").strip()
         # repeat the prompt for batch inference
         repeat_prompt: int = self._samples_per_prompt if self._batch_inference else 1
-        
-        data = {
-            'prompt': content,
-            'repeat_prompt': repeat_prompt,
-            'params': {
-                'do_sample': True,
-                'temperature': None,
-                'top_k': None,
-                'top_p': None,
-                'add_special_tokens': False,
-                'skip_special_tokens': True,
-            }
-        }
-        
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(self._url, data=json.dumps(data), headers=headers)
-        
-        if response.status_code == 200: #Server status code 200 indicates successful HTTP request! 
-            response = response.json()["content"]
-            
-            return response if self._batch_inference else response[0]
 
+        data = {
+            "prompt": content,
+            "repeat_prompt": repeat_prompt,
+            "params": {
+                "do_sample": True,
+                "temperature": None,
+                "top_k": None,
+                "top_p": None,
+                "add_special_tokens": False,
+                "skip_special_tokens": True,
+            },
+        }
+
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(self._url, data=json.dumps(data), headers=headers)
+
+        if response.status_code == 200:  # Server status code 200 indicates successful HTTP request!
+            response = response.json()["content"]
+
+            return response if self._batch_inference else response[0]

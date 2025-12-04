@@ -1,19 +1,29 @@
 # src/features_engineering/lib_existante/feature_engine.py
 # VERSION FINALE – ZÉRO ERREUR – feature-engine 1.9.3
 
-import pandas as pd
-import numpy as np
-from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator, TransformerMixin
-
-from feature_engine.imputation import MeanMedianImputer, CategoricalImputer
-from feature_engine.encoding import OneHotEncoder, RareLabelEncoder, MeanEncoder, WoEEncoder, CountFrequencyEncoder
-from feature_engine.outliers import Winsorizer
-from feature_engine.selection import DropConstantFeatures, DropDuplicateFeatures, DropCorrelatedFeatures
-from feature_engine.datetime import DatetimeFeatures
-from feature_engine.creation import CyclicalFeatures
-
 import warnings
+
+import numpy as np
+import pandas as pd
+from feature_engine.creation import CyclicalFeatures
+from feature_engine.datetime import DatetimeFeatures
+from feature_engine.encoding import (
+    CountFrequencyEncoder,
+    MeanEncoder,
+    OneHotEncoder,
+    RareLabelEncoder,
+    WoEEncoder,
+)
+from feature_engine.imputation import CategoricalImputer, MeanMedianImputer
+from feature_engine.outliers import Winsorizer
+from feature_engine.selection import (
+    DropConstantFeatures,
+    DropCorrelatedFeatures,
+    DropDuplicateFeatures,
+)
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
+
 warnings.filterwarnings("ignore")
 
 
@@ -35,16 +45,16 @@ class PairwiseRatios(BaseEstimator, TransformerMixin):
 
         # Sélection des meilleures paires (corrélation avec y)
         if y is not None:
-            corrs = np.abs([np.corrcoef(X[c].fillna(0), y.fillna(0))[0,1] for c in cols])
-            top_idx = np.argsort(corrs)[-min(15, len(cols)):]
+            corrs = np.abs([np.corrcoef(X[c].fillna(0), y.fillna(0))[0, 1] for c in cols])
+            top_idx = np.argsort(corrs)[-min(15, len(cols)) :]
             selected_cols = [cols[i] for i in top_idx]
         else:
             selected_cols = cols[:15]
 
         import itertools
-        self.selected_pairs = list(itertools.combinations(selected_cols, 2))[:self.max_pairs]
-        return self
 
+        self.selected_pairs = list(itertools.combinations(selected_cols, 2))[: self.max_pairs]
+        return self
 
     def transform(self, X):
         X = X.copy()
@@ -54,8 +64,8 @@ class PairwiseRatios(BaseEstimator, TransformerMixin):
             col = X[c].fillna(0)
             X[f"{c}_log"] = np.log1p(col)
             X[f"{c}_sqrt"] = np.sqrt(np.abs(col))
-            X[f"{c}_square"] = col ** 2
-            X[f"{c}_cube"] = col ** 3
+            X[f"{c}_square"] = col**2
+            X[f"{c}_cube"] = col**3
             X[f"{c}_inv"] = 1 / (col + 1e-6)
             X[f"{c}_round"] = col.round()
             X[f"{c}_sin"] = np.sin(col)
@@ -71,15 +81,14 @@ class PairwiseRatios(BaseEstimator, TransformerMixin):
                 X[f"{c1}_{c2}_sum"] = v1 + v2
 
         # Stats globales
-        num_cols = [c for c in X.columns if X[c].dtype in ['float64', 'int64']]
+        num_cols = [c for c in X.columns if X[c].dtype in ["float64", "int64"]]
         if len(num_cols) >= 2:
-            X['num_mean'] = X[num_cols].mean(axis=1)
-            X['num_std'] = X[num_cols].std(axis=1)
-            X['num_skew'] = X[num_cols].skew(axis=1)
-            X['num_kurt'] = X[num_cols].kurt(axis=1)
-            X['num_range'] = X[num_cols].max(axis=1) - X[num_cols].min(axis=1)
+            X["num_mean"] = X[num_cols].mean(axis=1)
+            X["num_std"] = X[num_cols].std(axis=1)
+            X["num_skew"] = X[num_cols].skew(axis=1)
+            X["num_kurt"] = X[num_cols].kurt(axis=1)
+            X["num_range"] = X[num_cols].max(axis=1) - X[num_cols].min(axis=1)
         return X
-
 
 
 class ThresholdFeatures(BaseEstimator, TransformerMixin):
@@ -88,6 +97,7 @@ class ThresholdFeatures(BaseEstimator, TransformerMixin):
       - Valeurs absolues (ex: Age > 10)
       - Valeurs relatives (ex: > median, > quantile 0.75)
     """
+
     def __init__(self, variables=None, thresholds=None, quantiles=[0.25, 0.5, 0.75]):
         """
         variables : liste des colonnes numériques
@@ -149,15 +159,16 @@ class AggFeatures(BaseEstimator, TransformerMixin):
 # CLASSE PRINCIPALE
 # =============================================
 class AutoFeatureGenerator:
-    def __init__(self,
-                 target: str,
-                 rare_tol: float = 0.01,
-                 encoding_strategy: str = "mean",
-                 winsorize: float = 0.05,
-                 add_cyclical: bool = True,
-                 add_pairwise: bool = True,
-                 max_pairs: int = 40):
-
+    def __init__(
+        self,
+        target: str,
+        rare_tol: float = 0.01,
+        encoding_strategy: str = "mean",
+        winsorize: float = 0.05,
+        add_cyclical: bool = True,
+        add_pairwise: bool = True,
+        max_pairs: int = 40,
+    ):
         self.target = target
         self.rare_tol = rare_tol
         self.encoding_strategy = encoding_strategy
@@ -173,7 +184,7 @@ class AutoFeatureGenerator:
     def _detect_columns(self, X):
         num = X.select_dtypes(include=np.number).columns.tolist()
         cat = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
-        dt  = X.select_dtypes(include=["datetime64[ns]"]).columns.tolist()
+        dt = X.select_dtypes(include=["datetime64[ns]"]).columns.tolist()
         return num, cat, dt
 
     def fit(self, X: pd.DataFrame, y: pd.Series = None):
@@ -185,7 +196,9 @@ class AutoFeatureGenerator:
 
         # 1. Imputation
         if num_cols:
-            steps.append(("imp_num", MeanMedianImputer(imputation_method="median", variables=num_cols)))
+            steps.append(
+                ("imp_num", MeanMedianImputer(imputation_method="median", variables=num_cols))
+            )
         if cat_cols:
             steps.append(("imp_cat", CategoricalImputer(fill_value="Missing", variables=cat_cols)))
 
@@ -208,23 +221,49 @@ class AutoFeatureGenerator:
         if dt_cols:
             if self.add_cyclical:
                 steps.append(("cyclical", CyclicalFeatures(variables=dt_cols, drop_original=True)))
-            steps.append(("dt", DatetimeFeatures(variables=dt_cols,
-                     features_to_extract=["month", "day_of_week", "hour", "weekend", "day_of_year"])))
+            steps.append(
+                (
+                    "dt",
+                    DatetimeFeatures(
+                        variables=dt_cols,
+                        features_to_extract=[
+                            "month",
+                            "day_of_week",
+                            "hour",
+                            "weekend",
+                            "day_of_year",
+                        ],
+                    ),
+                )
+            )
 
         # 5. Features numériques puissantes (remplace MathFeatures buggé)
         if num_cols and len(num_cols) >= 2:
             steps.append(("agg", AggFeatures(variables=num_cols)))
             if self.add_pairwise:
-                steps.append(("pairwise", PairwiseRatios(variables=num_cols, max_pairs=self.max_pairs)))
-        
+                steps.append(
+                    ("pairwise", PairwiseRatios(variables=num_cols, max_pairs=self.max_pairs))
+                )
+
         if num_cols:
             # Threshold / boolean features
-            steps.append(("threshold", ThresholdFeatures(variables=num_cols, quantiles=[0.25,0.5,0.75])))
+            steps.append(
+                ("threshold", ThresholdFeatures(variables=num_cols, quantiles=[0.25, 0.5, 0.75]))
+            )
 
         # 6. Winsorization
         if num_cols and self.winsorize > 0:
-            steps.append(("winsor", Winsorizer(capping_method="gaussian", tail="both",
-                                               fold=self.winsorize, variables=num_cols)))
+            steps.append(
+                (
+                    "winsor",
+                    Winsorizer(
+                        capping_method="gaussian",
+                        tail="both",
+                        fold=self.winsorize,
+                        variables=num_cols,
+                    ),
+                )
+            )
 
         # 7. Nettoyage
         steps += [
@@ -240,8 +279,10 @@ class AutoFeatureGenerator:
         X_out = self.pipeline.transform(X)
         self.n_features_out_ = X_out.shape[1]
 
-        print(f"AUTO FEATURE GENERATOR 100 % OK")
-        print(f"   {self.n_features_in_} → {self.n_features_out_} features (+{self.n_features_out_ - self.n_features_in_})")
+        print("AUTO FEATURE GENERATOR 100 % OK")
+        print(
+            f"   {self.n_features_in_} → {self.n_features_out_} features (+{self.n_features_out_ - self.n_features_in_})"
+        )
 
         return self
 
@@ -252,5 +293,3 @@ class AutoFeatureGenerator:
 
     def fit_transform(self, X, y=None):
         return self.fit(X, y).transform(X)
-
-

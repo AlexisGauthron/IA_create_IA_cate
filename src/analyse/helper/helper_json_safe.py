@@ -1,6 +1,8 @@
 from __future__ import annotations
-from dataclasses import is_dataclass, asdict
-from typing import Any, Dict
+
+from dataclasses import asdict, is_dataclass
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -34,14 +36,14 @@ def make_json_safe(obj: Any) -> Any:
     # DataFrame -> dict lisible
     if isinstance(obj, pd.DataFrame):
         if len(obj) <= 50:
-            rows: Dict[str, Dict[str, Any]] = {
+            rows: dict[str, dict[str, Any]] = {
                 str(idx): {col: make_json_safe(row[col]) for col in obj.columns}
                 for idx, row in obj.iterrows()
             }
             return {"__type__": "DataFrame", "rows": rows}
 
         head = obj.head(5)
-        rows: Dict[str, Dict[str, Any]] = {
+        rows: dict[str, dict[str, Any]] = {
             str(idx): {col: make_json_safe(row[col]) for col in head.columns}
             for idx, row in head.iterrows()
         }

@@ -2,36 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Union, Sequence, Optional
-from dataclasses import is_dataclass, asdict
-from pathlib import Path
 import json
-
-import numpy as np
-import pandas as pd
-
-from .config import FEAnalysisConfig
-from .targets import analyze_targets
-from .features import analyze_features
-from .leakage import detect_leakage
-from .printing import print_fe_report
-
-from src.analyse.dataset.all import (
-    DatasetContextForLLM,
-    BasicDatasetStats,
-    TargetSummaryForLLM,
-    FeatureSummaryForLLM,
-    FEDatasetSnapshotForLLM,
-)
+from pathlib import Path
+from typing import Any
 
 from src.analyse.helper.helper_json_safe import make_json_safe
+
 
 # ----------------------------------------------------------------------
 # Fonction demandée : prendre un report et le sauvegarder en JSON
 # ----------------------------------------------------------------------
 def save_report_to_json(
-    report: Dict[str, Any],
-    output_path: Union[str, Path],
+    report: dict[str, Any],
+    output_path: str | Path,
 ) -> None:
     """
     Sauvegarde le report complet en JSON.

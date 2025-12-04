@@ -1,29 +1,31 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Union, Sequence, Optional, List
+from collections.abc import Sequence
+from typing import Any
+
 import pandas as pd
 
+from src.analyse.dataset.all import (
+    BasicDatasetStats,
+    DatasetContextForLLM,
+    FeatureSummaryForLLM,
+    FEDatasetSnapshotForLLM,
+    TargetSummaryForLLM,
+)
+
 from .config import FEAnalysisConfig
-from .targets import analyze_targets
 from .features import analyze_features
 from .leakage import detect_leakage
 from .printing import print_fe_report
-
-from src.analyse.dataset.all import (
-    DatasetContextForLLM,
-    BasicDatasetStats,
-    TargetSummaryForLLM,
-    FeatureSummaryForLLM,
-    FEDatasetSnapshotForLLM,
-)
+from .targets import analyze_targets
 
 
 def _compute_correlations(
     df: pd.DataFrame,
     target_col: str,
     task: str = "classification",
-    methods: List[str] = None,
-) -> Dict[str, Any]:
+    methods: list[str] = None,
+) -> dict[str, Any]:
     """
     Calcule les corrélations entre les features et la cible.
 
@@ -45,9 +47,9 @@ def _compute_correlations(
     if methods is None:
         methods = ["pearson", "spearman", "kendall", "mutual_info"]
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("       ANALYSE DES CORRÉLATIONS")
-    print("="*60)
+    print("=" * 60)
 
     try:
         analyzer = FeatureCorrelationAnalyzer(df, target_col=target_col, task=task)
@@ -70,7 +72,7 @@ def _compute_correlations(
             print("[INFO] Calcul de la Mutual Information...")
             mi = analyzer.compute_mutual_info()
             results["mutual_info"] = mi.to_dict(orient="records")
-            print(f"  ✓ Mutual Information calculée")
+            print("  ✓ Mutual Information calculée")
 
         # MIC (si minepy installé)
         if "mic" in methods:
@@ -78,9 +80,9 @@ def _compute_correlations(
             mic = analyzer.compute_mic_matrix()
             results["mic"] = mic.to_dict(orient="records")
             if mic["mic"].sum() > 0:
-                print(f"  ✓ MIC calculé")
+                print("  ✓ MIC calculé")
             else:
-                print(f"  ⚠ MIC non disponible (minepy non installé)")
+                print("  ⚠ MIC non disponible (minepy non installé)")
 
         # PhiK (si phik installé)
         if "phik" in methods:
@@ -88,9 +90,9 @@ def _compute_correlations(
             phik = analyzer.compute_phik()
             results["phik"] = phik.to_dict(orient="records")
             if phik["phik"].sum() > 0:
-                print(f"  ✓ PhiK calculé")
+                print("  ✓ PhiK calculé")
             else:
-                print(f"  ⚠ PhiK non disponible (phik non installé)")
+                print("  ⚠ PhiK non disponible (phik non installé)")
 
         # Score combiné
         print("[INFO] Calcul du score combiné...")
@@ -101,12 +103,12 @@ def _compute_correlations(
         top_10 = combined.head(10)[["feature", "combined_score"]].to_dict(orient="records")
         results["top_10_features"] = top_10
 
-        print("\n" + "-"*60)
+        print("\n" + "-" * 60)
         print("TOP 10 FEATURES (par score combiné de corrélation)")
-        print("-"*60)
+        print("-" * 60)
         for i, row in enumerate(top_10, 1):
             print(f"  {i:2d}. {row['feature']:<30} score: {row['combined_score']:.4f}")
-        print("-"*60)
+        print("-" * 60)
 
         return results
 
@@ -133,10 +135,7 @@ def _compute_basic_dataset_stats(
     # Comptages par type (assez grossiers mais suffisent pour le LLM)
     numeric_cols = [c for c in feature_cols if pd.api.types.is_numeric_dtype(df[c])]
     datetime_cols = [c for c in feature_cols if pd.api.types.is_datetime64_any_dtype(df[c])]
-    text_like_cols = [
-        c for c in feature_cols
-        if df[c].dtype == "object" and c not in datetime_cols
-    ]
+    text_like_cols = [c for c in feature_cols if df[c].dtype == "object" and c not in datetime_cols]
 
     # Ici on ne distingue pas finement "catégoriel" vs "texte",
     # tu pourras raffiner si besoin.
@@ -165,18 +164,18 @@ def _compute_basic_dataset_stats(
 
 def analyze_dataset_for_fe(
     df: pd.DataFrame,
-    target_cols: Union[str, Sequence[str]],
+    target_cols: str | Sequence[str],
     config: FEAnalysisConfig | None = None,
     print_report: bool = True,
     *,
     # 👇 métadonnées optionnelles pour le LLM
     dataset_name: str = "dataset",
-    business_description: Optional[str] = None,
+    business_description: str | None = None,
     # 👇 Options pour les corrélations
     with_correlations: bool = False,
-    correlation_methods: Optional[List[str]] = None,
+    correlation_methods: list[str] | None = None,
     correlation_task: str = "classification",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if isinstance(target_cols, str):
         target_cols = [target_cols]
     else:
@@ -203,8 +202,8 @@ def analyze_dataset_for_fe(
     # 1) Analyse cibles (dict classique + dataclass LLM)
     # ----------------------------------------------------------------------
     targets_result = analyze_targets(df, target_cols, config)
-    targets_info = targets_result["summary"]               # pour ton rapport humain
-    llm_targets: Dict[str, TargetSummaryForLLM] = targets_result["llm"]
+    targets_info = targets_result["summary"]  # pour ton rapport humain
+    llm_targets: dict[str, TargetSummaryForLLM] = targets_result["llm"]
 
     # ----------------------------------------------------------------------
     # 2) Analyse features (dict classique + dataclasses LLM)
@@ -212,14 +211,14 @@ def analyze_dataset_for_fe(
     feat_result = analyze_features(df, feature_cols, config)
     features_info = feat_result["features"]
     warnings = feat_result["warnings"]
-    llm_features: Dict[str, FeatureSummaryForLLM] = feat_result["llm_features"]
+    llm_features: dict[str, FeatureSummaryForLLM] = feat_result["llm_features"]
 
     # ----------------------------------------------------------------------
     # 3) Leakage (summary + dataclasses LLM, si tu as adapté detect_leakage)
     # ----------------------------------------------------------------------
     leakage_result = detect_leakage(df, feature_cols, target_cols, config)
-    suspected_leakage = leakage_result["summary"]          # legacy pour rapport
-    llm_leakage = leakage_result.get("llm", [])            # liste de dataclasses ou vide
+    suspected_leakage = leakage_result["summary"]  # legacy pour rapport
+    llm_leakage = leakage_result.get("llm", [])  # liste de dataclasses ou vide
 
     # ----------------------------------------------------------------------
     # 3.5) Corrélations (optionnel - activé avec with_correlations=True)
@@ -236,7 +235,7 @@ def analyze_dataset_for_fe(
     # ----------------------------------------------------------------------
     # 4) Rapport "classique" (comme avant)
     # ----------------------------------------------------------------------
-    report: Dict[str, Any] = {
+    report: dict[str, Any] = {
         "global": {
             "n_rows": n_rows,
             "n_features": len(feature_cols),
@@ -275,7 +274,7 @@ def analyze_dataset_for_fe(
     target_llm = llm_targets[main_target]
 
     # 5.4 Config d'analyse (seuils utilisés pour les flags)
-    analysis_cfg: Dict[str, Any] = {
+    analysis_cfg: dict[str, Any] = {
         "max_unique_cat_low": getattr(config, "max_unique_cat_low", None),
         "high_cardinality_threshold": getattr(config, "high_cardinality_threshold", None),
         "id_unique_ratio_threshold": getattr(config, "id_unique_ratio_threshold", None),
@@ -285,7 +284,7 @@ def analyze_dataset_for_fe(
     }
 
     # 5.5 Notes globales pour le LLM (on y met par ex. les infos de fuite détectée)
-    global_notes: List[str] = []
+    global_notes: list[str] = []
     if len(target_cols) > 1:
         global_notes.append(
             f"Plusieurs cibles détectées ({target_cols}). Le snapshot LLM utilise '{main_target}' comme cible principale."

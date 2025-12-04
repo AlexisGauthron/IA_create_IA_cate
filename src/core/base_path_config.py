@@ -14,13 +14,14 @@ Architecture:
  Analyse   AutoML         LLMFE
 PathConfig PathConfig   PathConfig
 """
+
 from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from pathlib import Path
+from typing import Any
 
 
 class BasePathConfig(ABC):
@@ -47,7 +48,7 @@ class BasePathConfig(ABC):
     def __init__(
         self,
         project_name: str,
-        base_dir: Optional[str | Path] = None,
+        base_dir: str | Path | None = None,
     ):
         """
         Initialise la configuration des chemins.
@@ -83,7 +84,7 @@ class BasePathConfig(ABC):
     # === Méthodes abstraites (à implémenter dans les sous-classes) ===
 
     @abstractmethod
-    def _get_subdirectories(self) -> List[Path]:
+    def _get_subdirectories(self) -> list[Path]:
         """
         Retourne la liste des sous-dossiers spécifiques au module.
 
@@ -95,7 +96,7 @@ class BasePathConfig(ABC):
         pass
 
     @abstractmethod
-    def get_all_paths(self) -> Dict[str, str]:
+    def get_all_paths(self) -> dict[str, str]:
         """
         Retourne tous les chemins configurés pour ce module.
 
@@ -141,7 +142,7 @@ class BasePathConfig(ABC):
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(log_line)
 
-    def save_json(self, data: Dict[str, Any], path: Path, verbose: bool = True) -> Path:
+    def save_json(self, data: dict[str, Any], path: Path, verbose: bool = True) -> Path:
         """
         Sauvegarde un dictionnaire en JSON.
 
@@ -156,6 +157,7 @@ class BasePathConfig(ABC):
         # Tenter de rendre les données JSON-safe
         try:
             from src.analyse.helper.helper_json_safe import make_json_safe
+
             data = make_json_safe(data)
         except ImportError:
             pass
@@ -172,7 +174,7 @@ class BasePathConfig(ABC):
         self.log(f"Fichier sauvegardé: {path}")
         return path
 
-    def save_metadata(self, metadata: Dict[str, Any]) -> Path:
+    def save_metadata(self, metadata: dict[str, Any]) -> Path:
         """
         Sauvegarde les métadonnées avec informations communes.
 
@@ -193,7 +195,7 @@ class BasePathConfig(ABC):
         }
         return self.save_json(full_metadata, self.metadata_path)
 
-    def get_base_paths(self) -> Dict[str, str]:
+    def get_base_paths(self) -> dict[str, str]:
         """Retourne les chemins de base communs à tous les modules."""
         return {
             "project_dir": str(self.project_dir),
@@ -203,7 +205,7 @@ class BasePathConfig(ABC):
         }
 
     @classmethod
-    def from_existing(cls, project_dir: str | Path) -> "BasePathConfig":
+    def from_existing(cls, project_dir: str | Path) -> BasePathConfig:
         """
         Crée une instance à partir d'un dossier existant.
 

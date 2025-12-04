@@ -1,24 +1,26 @@
-from typing import Dict, List, Optional
-import json, re, random
+import json
+import random
+import re
 from collections import Counter
 
+
 def definition_labels_completes(
-    shots: Dict[str, List[str]],
+    shots: dict[str, list[str]],
     *,
     model: str = "llama2:latest",
     max_pos_examples: int = 8,
     max_neg_examples: int = 6,
     max_terms: int = 12,
     temperature: float = 0.4,
-    seed: Optional[int] = 42,
+    seed: int | None = 42,
     batch_size: int = 5,  # Nombre de labels par lot pour les appels LLM
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Génère pour chaque label une définition concrète + exemples extrapolés.
     Retourne un dict du type :
         {
-          "Support Technique": 
-             "Catégorie liée à la résolution de problèmes techniques, bugs ou erreurs. 
+          "Support Technique":
+             "Catégorie liée à la résolution de problèmes techniques, bugs ou erreurs.
               Exemples : assistance aux utilisateurs, diagnostic de pannes, correction d’anomalies."
         }
 
@@ -29,13 +31,11 @@ def definition_labels_completes(
     rng = random.Random(seed or 1234)
     labels = list(shots.keys())
 
-    
-
     # Nettoyage des exemples
     clean_shots = {lbl: clean_tok._clean_list(exs) for lbl, exs in shots.items()}
 
     # Comptage global et par label
-    per_label_counts: Dict[str, Counter] = {}
+    per_label_counts: dict[str, Counter] = {}
     total_counts = Counter()
     for lbl, exs in clean_shots.items():
         c = Counter()
@@ -44,40 +44,37 @@ def definition_labels_completes(
         per_label_counts[lbl] = c
         total_counts.update(c)
 
-    
-
     # --- Fonction interne : top termes discriminants
-    def _top_terms(lbl: str, k: int = 30) -> List[str]:
+    def _top_terms(lbl: str, k: int = 30) -> list[str]:
         pos = per_label_counts.get(lbl, Counter())
         neg = Counter()
         for other, cnts in per_label_counts.items():
             if other == lbl:
                 continue
             neg.update(cnts)
+
         def spec(t):
             p, n = pos[t], neg[t]
             return (p + 1.0) / (p + n + 2.0)
-        candidates = [t for t, cnt in pos.most_common(3*k) if cnt >= 2]
+
+        candidates = [t for t, cnt in pos.most_common(3 * k) if cnt >= 2]
         candidates.sort(key=lambda t: (spec(t), pos[t]), reverse=True)
         return candidates[:k]
-
 
     # --- Vérifie la disponibilité d’Ollama
     def _ollama_available():
         try:
-            import ollama
             print("\n[get_definition] Ollama disponible pour génération LLM.\n")
             return True
         except Exception:
             print("\n[get_definition] Ollama indisponible, fallback local.\n")
             return False
 
-
-
     # --- Envoie la requête LLM (avec format JSON forcé)
-    def _ask_ollama(payload: str) -> Optional[dict]:
+    def _ask_ollama(payload: str) -> dict | None:
         try:
             import ollama
+
             resp = ollama.chat(
                 model=model,
                 messages=[
@@ -90,8 +87,7 @@ def definition_labels_completes(
                             "Chaque clé du JSON correspond à un label, et chaque valeur est une phrase courte définissant concrètement la catégorie, "
                             "suivie de 2 à 3 exemples extrapolés représentatifs. "
                             "Utilise un ton neutre et concis, adapté à une base de données métier."
-                        )
-
+                        ),
                     },
                     {
                         "role": "user",
@@ -102,11 +98,10 @@ def definition_labels_completes(
                     "temperature": float(temperature),
                     **({"seed": int(seed)} if seed is not None else {}),
                 },
-                format = "json",
+                format="json",
             )
             print(f"[get_definition] Réponse reçue de l’LLM : \n {resp}\n\n\n")
             txt = resp["message"]["content"]
-
 
             # --- ⚙️ Post-traitement : extraire le JSON pur
             m = re.search(r"\{[\s\S]*\}", txt)
@@ -131,13 +126,13 @@ def definition_labels_completes(
 
         except Exception as e:
             import traceback
+
             print("[get_definition] Erreur critique lors de la requête Ollama :")
             traceback.print_exc()
             print(f"→ Détail : {e}\n")
             return None
 
-
-    # --- Préparation du prompt global 
+    # --- Préparation du prompt global
     lines = []
     for lbl in labels:
         pos = clean_shots.get(lbl, [])
@@ -157,7 +152,7 @@ def definition_labels_completes(
         lines.append(
             f"Label: {lbl}\n"
             f"- Exemples positifs:\n  - " + "\n  - ".join(pos) + "\n"
-            f"- Exemples négatifs:\n  - " + ("\n  - ".join(neg) if neg else "(aucun)") + "\n"
+            "- Exemples négatifs:\n  - " + ("\n  - ".join(neg) if neg else "(aucun)") + "\n"
             f"- Termes clés pertinents: {candidates}\n"
         )
 
@@ -166,20 +161,22 @@ def definition_labels_completes(
         "et chaque valeur est UNE phrase concise décrivant ce que représente cette catégorie, "
         "suivie d'exemples extrapolés cohérents (en français). "
         "Exemple de format attendu:\n"
-        "{ \"Support Technique\": \"Aide aux utilisateurs confrontés à des problèmes logiciels ou matériels. "
-        "Exemples : assistance informatique, résolution de bugs, diagnostic réseau.\" }\n"
+        '{ "Support Technique": "Aide aux utilisateurs confrontés à des problèmes logiciels ou matériels. '
+        'Exemples : assistance informatique, résolution de bugs, diagnostic réseau." }\n'
         "Ne produis rien d’autre que ce JSON."
     )
 
-    results: Dict[str, str] = {}
+    results: dict[str, str] = {}
 
     # Appels par batchs (5 labels max par requête)
     if _ollama_available():
         all_data = {}
         for i in range(0, len(labels), batch_size):
             batch = labels[i : i + batch_size]
-            print(f"[get_definition] Envoi du lot {i//batch_size + 1} "
-                  f"({len(batch)} labels: {batch}) \n")
+            print(
+                f"[get_definition] Envoi du lot {i//batch_size + 1} "
+                f"({len(batch)} labels: {batch}) \n"
+            )
 
             # ⚙️ MODIF — Filtrer les lignes pour ce lot uniquement
             batch_lines = [l for l in lines if any(lbl in l for lbl in batch)]
@@ -189,6 +186,7 @@ def definition_labels_completes(
                 data = _ask_ollama(batch_payload)
             except Exception as e:
                 import traceback
+
                 print("[get_definition] Erreur lors du traitement d’un lot :")
                 traceback.print_exc()
                 print(f"→ Détail : {e}\n")
@@ -197,13 +195,14 @@ def definition_labels_completes(
             if isinstance(data, dict):
                 all_data.update(data)
             else:
-                print(f"[get_definition] ⚠️ Le modèle n’a pas renvoyé de JSON valide pour le lot {i//batch_size + 1}.\n")
+                print(
+                    f"[get_definition] ⚠️ Le modèle n’a pas renvoyé de JSON valide pour le lot {i//batch_size + 1}.\n"
+                )
 
         # ⚙️ MODIF — Nettoyage final des résultats fusionnés
 
         def normalize_label(lbl: str) -> str:
             return re.sub(r"\s+", " ", lbl.strip()).lower()
-
 
         # Crée un dict normalisé du JSON renvoyé
         normalized_data = {normalize_label(k): v for k, v in data.items()}
@@ -216,8 +215,9 @@ def definition_labels_completes(
                 s = s.rstrip(".;: ")
                 results[lbl] = s[:500]
 
-
-        print(f"[get_definition] Définitions générées via LLM pour {len(results)}/{len(labels)} labels.\n")
+        print(
+            f"[get_definition] Définitions générées via LLM pour {len(results)}/{len(labels)} labels.\n"
+        )
 
     else:
         print("[get_definition] Ollama indisponible, fallback local.\n")
@@ -231,8 +231,8 @@ def definition_labels_completes(
         definition = (
             f"Catégorie associée à {', '.join(terms[:max_terms])}. "
             f"Exemples typiques : {', '.join(exemples)}."
-            if terms else
-            f"Catégorie {lbl} (définition locale non disponible)."
+            if terms
+            else f"Catégorie {lbl} (définition locale non disponible)."
         )
         results[lbl] = definition
 

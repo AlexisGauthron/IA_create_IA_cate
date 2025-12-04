@@ -2,14 +2,17 @@
 Composant de chat réutilisable pour l'agent métier.
 """
 
-import streamlit as st
-from typing import Optional, Dict, Any, List, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
+import streamlit as st
 
 
 class MessageRole(Enum):
     """Rôles des messages dans le chat."""
+
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -18,9 +21,10 @@ class MessageRole(Enum):
 @dataclass
 class ChatMessage:
     """Structure d'un message de chat."""
+
     role: MessageRole
     content: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class ChatComponent:
@@ -40,12 +44,12 @@ class ChatComponent:
     def __init__(
         self,
         session_key: str = "chat_history",
-        on_send: Optional[Callable[[str], Dict[str, Any]]] = None,
+        on_send: Callable[[str], dict[str, Any]] | None = None,
         placeholder: str = "Votre message...",
         assistant_avatar: str = "🤖",
         user_avatar: str = "👤",
         system_avatar: str = "⚙️",
-        commands: Optional[Dict[str, str]] = None,
+        commands: dict[str, str] | None = None,
     ):
         """
         Initialise le composant chat.
@@ -75,11 +79,11 @@ class ChatComponent:
             st.session_state[self.session_key] = []
 
     @property
-    def history(self) -> List[Dict[str, Any]]:
+    def history(self) -> list[dict[str, Any]]:
         """Retourne l'historique des messages."""
         return st.session_state.get(self.session_key, [])
 
-    def add_message(self, role: str, content: str, metadata: Optional[Dict] = None):
+    def add_message(self, role: str, content: str, metadata: dict | None = None):
         """Ajoute un message à l'historique."""
         message = {
             "role": role,
@@ -95,12 +99,10 @@ class ChatComponent:
     def render_commands_help(self):
         """Affiche l'aide des commandes."""
         if self.commands:
-            commands_text = " | ".join([
-                f"`{cmd}` ({desc})" for cmd, desc in self.commands.items()
-            ])
+            commands_text = " | ".join([f"`{cmd}` ({desc})" for cmd, desc in self.commands.items()])
             st.caption(f"Commandes: {commands_text}")
 
-    def render_message(self, message: Dict[str, Any]):
+    def render_message(self, message: dict[str, Any]):
         """Affiche un message."""
         role = message.get("role", "user")
         content = message.get("content", "")
@@ -125,7 +127,7 @@ class ChatComponent:
         for message in self.history:
             self.render_message(message)
 
-    def process_input(self, user_input: str) -> Optional[Dict[str, Any]]:
+    def process_input(self, user_input: str) -> dict[str, Any] | None:
         """
         Traite l'input utilisateur.
 
@@ -137,11 +139,7 @@ class ChatComponent:
         # Vérifier les commandes spéciales
         if normalized_input in ["skip", "passer"]:
             self.add_message("user", user_input)
-            self.add_message(
-                "assistant",
-                "Question passée.",
-                {"mode": "Skip"}
-            )
+            self.add_message("assistant", "Question passée.", {"mode": "Skip"})
             return {"action": "skip"}
 
         if normalized_input in ["done", "terminé", "fini"]:
@@ -149,7 +147,7 @@ class ChatComponent:
             self.add_message(
                 "assistant",
                 "Conversation terminée. Les informations ont été enregistrées.",
-                {"mode": "Final"}
+                {"mode": "Final"},
             )
             return {"action": "done"}
 
@@ -165,7 +163,7 @@ class ChatComponent:
                 if isinstance(response, dict):
                     content = response.get(
                         "question",
-                        response.get("synthesis", response.get("content", str(response)))
+                        response.get("synthesis", response.get("content", str(response))),
                     )
                     mode = response.get("mode", "Question")
                 else:
@@ -223,8 +221,8 @@ class AgentChatComponent(ChatComponent):
         self,
         provider: str = "openai",
         model: str = "gpt-4o-mini",
-        stats_report: Optional[Dict] = None,
-        **kwargs
+        stats_report: dict | None = None,
+        **kwargs,
     ):
         """
         Initialise le chat avec l'agent métier.
@@ -243,7 +241,7 @@ class AgentChatComponent(ChatComponent):
             session_key="agent_chat_history",
             on_send=self._handle_message,
             placeholder="Répondez à l'agent...",
-            **kwargs
+            **kwargs,
         )
 
     @property
@@ -271,7 +269,7 @@ class AgentChatComponent(ChatComponent):
                 st.session_state[chatbot_key] = self._chatbot
         return self._chatbot
 
-    def start_conversation(self) -> Dict[str, Any]:
+    def start_conversation(self) -> dict[str, Any]:
         """Démarre la conversation avec le rapport statistique."""
         if not self.stats_report:
             return {"error": "Pas de rapport statistique fourni"}
@@ -289,15 +287,15 @@ class AgentChatComponent(ChatComponent):
             self.add_message("system", error_msg)
             return {"error": str(e)}
 
-    def _handle_message(self, user_input: str) -> Dict[str, Any]:
+    def _handle_message(self, user_input: str) -> dict[str, Any]:
         """Gère l'envoi d'un message au chatbot."""
         # ask_next retourne une string
         response = self.chatbot.ask_next(user_answer=user_input)
         return {"content": response}
 
-    def get_context(self) -> Dict[str, Any]:
+    def get_context(self) -> dict[str, Any]:
         """Récupère le contexte collecté par l'agent (historique des messages)."""
-        if hasattr(self.chatbot, 'messages'):
+        if hasattr(self.chatbot, "messages"):
             return {"messages": self.chatbot.messages}
         return {}
 
@@ -318,7 +316,8 @@ class AgentChatComponent(ChatComponent):
 
 def render_typing_indicator():
     """Affiche un indicateur de frappe."""
-    st.markdown("""
+    st.markdown(
+        """
     <div style="display: flex; align-items: center; gap: 8px; padding: 8px;">
         <span style="font-size: 1.2rem;">🤖</span>
         <span style="color: var(--text-muted);">L'agent réfléchit...</span>
@@ -338,4 +337,6 @@ def render_typing_indicator():
         40% { opacity: 1; }
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )

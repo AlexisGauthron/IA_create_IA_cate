@@ -1,19 +1,18 @@
-from typing import Optional, List, Tuple
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
 import src.front.ui_helper as ui_helper
 
-def upload_csv_ui(parent_left) -> Optional[pd.DataFrame]:
+
+def upload_csv_ui(parent_left) -> pd.DataFrame | None:
     with ui_helper.card_block(parent_left) as left_card:
         left_card.subheader("1) Charger votre CSV")
 
         uploaded_files = left_card.file_uploader(
-            "CSV à classer",
-            type=["csv"],
-            accept_multiple_files=True
+            "CSV à classer", type=["csv"], accept_multiple_files=True
         )
 
         if not uploaded_files:
@@ -21,24 +20,33 @@ def upload_csv_ui(parent_left) -> Optional[pd.DataFrame]:
             return None
 
         def _read_csv_any(f) -> pd.DataFrame:
-            try: f.seek(0)
-            except Exception: pass
-            try: return pd.read_csv(f, sep=None, engine="python")
-            except Exception: pass
             try:
-                try: f.seek(0)
-                except Exception: pass
+                f.seek(0)
+            except Exception:
+                pass
+            try:
+                return pd.read_csv(f, sep=None, engine="python")
+            except Exception:
+                pass
+            try:
+                try:
+                    f.seek(0)
+                except Exception:
+                    pass
                 return pd.read_csv(f)
-            except Exception: pass
+            except Exception:
+                pass
             try:
-                try: f.seek(0)
-                except Exception: pass
+                try:
+                    f.seek(0)
+                except Exception:
+                    pass
                 return pd.read_csv(f, sep=";")
             except Exception as e:
                 raise e
 
         # Charger tous les fichiers
-        named_dfs: List[Tuple[str, pd.DataFrame]] = []
+        named_dfs: list[tuple[str, pd.DataFrame]] = []
         for uf in uploaded_files:
             try:
                 df_i = _read_csv_any(uf)
@@ -51,7 +59,9 @@ def upload_csv_ui(parent_left) -> Optional[pd.DataFrame]:
         # Un seul fichier -> affichage direct
         if len(named_dfs) == 1:
             name, df = named_dfs[0]
-            left_card.caption(f"Fichier: {name} — Dimensions: {df.shape[0]} lignes × {df.shape[1]} colonnes")
+            left_card.caption(
+                f"Fichier: {name} — Dimensions: {df.shape[0]} lignes × {df.shape[1]} colonnes"
+            )
             left_card.dataframe(df, use_container_width=True)
             return df
 
@@ -115,7 +125,11 @@ def _drop_wildcard_dominated_rows(df: pd.DataFrame) -> pd.DataFrame:
     # Normaliser: trim, tout en str pour comparer proprement entre fichiers
     norm = df.copy()
     for c in norm.columns:
-        norm[c] = norm[c].apply(lambda x: None if (pd.isna(x) or (isinstance(x, str) and x.strip() == "")) else str(x).strip())
+        norm[c] = norm[c].apply(
+            lambda x: None
+            if (pd.isna(x) or (isinstance(x, str) and x.strip() == ""))
+            else str(x).strip()
+        )
 
     cols = list(norm.columns)
 

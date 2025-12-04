@@ -1,8 +1,10 @@
 """
 Tests unitaires pour le wrapper FLAML AutoML.
 """
-import sys
+
 import os
+import sys
+
 import pytest
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
@@ -13,6 +15,7 @@ if src_path not in sys.path:
 # Vérifier si flaml est installé
 try:
     from flaml import AutoML
+
     FLAML_AVAILABLE = True
 except ImportError:
     FLAML_AVAILABLE = False
@@ -25,12 +28,15 @@ class TestFLAML:
     def test_import_flaml_wrapper(self):
         """Test l'import du wrapper FLAML."""
         from src.automl.supervised.flaml_wrapper import autoMl_flaml
+
         assert autoMl_flaml is not None
 
     def test_flaml_training(self):
         """Test l'entraînement FLAML sur breast_cancer."""
         from pathlib import Path
+
         from sklearn.model_selection import train_test_split
+
         from src.automl.supervised.flaml_wrapper import autoMl_flaml
         from src.core.io_utils import load_datasets_breast_cancer
 
@@ -40,8 +46,8 @@ class TestFLAML:
         dossier.mkdir(parents=True, exist_ok=True)
 
         df = load_datasets_breast_cancer()
-        X = df.drop(columns=['target'])
-        y = df['target']
+        X = df.drop(columns=["target"])
+        y = df["target"]
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, stratify=y, test_size=0.2, random_state=42
         )

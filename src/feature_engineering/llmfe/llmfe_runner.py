@@ -6,18 +6,15 @@ Utilise FeatureEngineeringPathConfig pour une architecture simplifiée.
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 
-from src.feature_engineering.path_config import FeatureEngineeringPathConfig
+import pandas as pd
+
 from src.feature_engineering.llmfe import config as config_lib
-from src.feature_engineering.llmfe import pipeline
-from src.feature_engineering.llmfe import sampler
-from src.feature_engineering.llmfe import evaluator
+from src.feature_engineering.llmfe import evaluator, pipeline, sampler
 from src.feature_engineering.llmfe.feature_formatter import FeatureFormat
 from src.feature_engineering.llmfe.feature_insights import FeatureInsights
+from src.feature_engineering.path_config import FeatureEngineeringPathConfig
 
 
 class LLMFERunner:
@@ -40,8 +37,8 @@ class LLMFERunner:
     def __init__(
         self,
         project_name: str,
-        output_root: Optional[str] = None,
-        path_config: Optional[FeatureEngineeringPathConfig] = None,
+        output_root: str | None = None,
+        path_config: FeatureEngineeringPathConfig | None = None,
     ):
         """
         Initialise le runner LLMFE.
@@ -66,18 +63,18 @@ class LLMFERunner:
         target_col: str,
         is_regression: bool = False,
         max_samples: int = 20,
-        task_description: Optional[str] = None,
-        meta_data: Optional[Dict[str, str]] = None,
+        task_description: str | None = None,
+        meta_data: dict[str, str] | None = None,
         use_api: bool = True,
         api_model: str = "gpt-4",
         num_samplers: int = 1,
         num_evaluators: int = 1,
         samples_per_prompt: int = 3,
         evaluate_timeout_seconds: int = 30,
-        feature_insights: Optional[FeatureInsights] = None,
+        feature_insights: FeatureInsights | None = None,
         feature_format: FeatureFormat = FeatureFormat.BASIC,
-        analyse_path: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        analyse_path: str | None = None,
+    ) -> dict[str, Any]:
         """
         Exécute LLMFE sur le dataset fourni.
 
@@ -128,20 +125,19 @@ class LLMFERunner:
         y = df_train[target_col].values
 
         # Déterminer les colonnes catégorielles
-        is_cat = [X[col].dtype == 'object' or X[col].dtype.name == 'category'
-                  for col in X.columns]
+        is_cat = [X[col].dtype == "object" or X[col].dtype.name == "category" for col in X.columns]
 
         data_dict = {
-            'inputs': X,
-            'outputs': y,
-            'is_cat': is_cat,
-            'is_regression': is_regression,
+            "inputs": X,
+            "outputs": y,
+            "is_cat": is_cat,
+            "is_regression": is_regression,
         }
-        dataset = {'data': data_dict}
+        dataset = {"data": data_dict}
 
         # 5. Créer les métadonnées si non fournies
         if meta_data is None:
-            meta_data = {col: col.replace('_', ' ') for col in X.columns}
+            meta_data = {col: col.replace("_", " ") for col in X.columns}
 
         # 5b. Charger ou créer les FeatureInsights
         # IMPORTANT: On utilise TOUJOURS src/analyse/ comme source unique de vérité
@@ -335,9 +331,9 @@ def run_llmfe(
     target_col: str,
     is_regression: bool = False,
     max_samples: int = 20,
-    output_root: Optional[str] = None,
-    **kwargs
-) -> Dict[str, Any]:
+    output_root: str | None = None,
+    **kwargs,
+) -> dict[str, Any]:
     """
     Fonction raccourcie pour lancer LLMFE.
 
@@ -374,5 +370,5 @@ def run_llmfe(
         target_col=target_col,
         is_regression=is_regression,
         max_samples=max_samples,
-        **kwargs
+        **kwargs,
     )

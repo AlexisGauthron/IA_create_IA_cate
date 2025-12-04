@@ -1,23 +1,33 @@
+import json
 import os
 import sys
-import json
-from typing import Optional, Dict, Any, List
+from typing import Any
 
-import pandas as pd
 import h2o
+import pandas as pd
 from h2o.automl import H2OAutoML, get_leaderboard
-
 from tqdm.auto import tqdm
 
 # Force le flush automatique de stdout pour voir les logs en temps réel
-sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, "reconfigure") else None
 
 import matplotlib
+
 matplotlib.use("Agg")  # backend non interactif, aucune fenêtre ne s’ouvre
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, f1_score
 
-class autoMl_h2o:
+# =============================================================================
+# Classe H2OWrapper
+# =============================================================================
+# Renommée de 'autoMl_h2o' vers 'H2OWrapper'
+# Raison: 'autoMl_h2o' mélangeait camelCase et snake_case
+#         Les classes doivent être en PascalCase
+#         H2O est un nom propre → on garde les majuscules
+# =============================================================================
+
+
+class H2OWrapper:
     """
     Wrapper structuré autour de H2O AutoML pour :
       - lancer des runs AutoML avec gestion de dossiers
@@ -43,7 +53,6 @@ class autoMl_h2o:
         y_test: pd.Series,
         *,
         results_subdir: str = "h2o",
-
         # ====== FLAGS DE SAUVEGARDE PAR DÉFAUT ======
         save_best_model: bool = True,
         save_leaderboard: bool = True,
@@ -54,7 +63,6 @@ class autoMl_h2o:
         save_features_json: bool = True,
         save_predictions: bool = True,
     ) -> None:
-        
         # Données
         self.X_train = X_train
         self.y_train = y_train
@@ -64,15 +72,15 @@ class autoMl_h2o:
         # Chemins
         self.project_root = os.path.abspath(project_root)
         self.base_dir = os.path.join(self.project_root, results_subdir)
-        self.current_run_name: Optional[str] = None
-        self.current_run_dir: Optional[str] = None
+        self.current_run_name: str | None = None
+        self.current_run_dir: str | None = None
 
         # Objets H2O / AutoML
-        self.aml: Optional[H2OAutoML] = None
-        self.test: Optional[h2o.H2OFrame] = None
-        self.best_model_path: Optional[str] = None
-        self.leaderboard_df: Optional[pd.DataFrame] = None
-        self.perf_test = None # cache optionnel des performances sur test
+        self.aml: H2OAutoML | None = None
+        self.test: h2o.H2OFrame | None = None
+        self.best_model_path: str | None = None
+        self.leaderboard_df: pd.DataFrame | None = None
+        self.perf_test = None  # cache optionnel des performances sur test
 
         # ====== FLAGS DE SAUVEGARDE ======
         self.save_best_model_flag = save_best_model
@@ -85,8 +93,6 @@ class autoMl_h2o:
         self.save_predictions_flag = save_predictions
 
         self._ensure_dir(self.base_dir)
-
-
 
     # ------------------------------------------------------------------
     # Helpers internes
@@ -153,7 +159,9 @@ class autoMl_h2o:
                 pass
             return True
         except Exception as e:
-            print(f"[ERREUR] Impossible de créer le H2OFrame de test ou de caster 'label' en factor : {e}")
+            print(
+                f"[ERREUR] Impossible de créer le H2OFrame de test ou de caster 'label' en factor : {e}"
+            )
             return False
 
     # ------------------------------------------------------------------
@@ -187,9 +195,9 @@ class autoMl_h2o:
         self,
         time_budget: int = 60,
         *,
-        run_name: Optional[str] = None,
+        run_name: str | None = None,
         export_checkpoints_subdir: str = "checkpoints",
-        automl_kwargs: Optional[Dict[str, Any]] = None,
+        automl_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """
         Lance un run AutoML H2O complet.
@@ -218,16 +226,24 @@ class autoMl_h2o:
 
         # Convertir en DataFrame si c'est un numpy array (après StandardScaler)
         # IMPORTANT: Reset les index pour éviter les désalignements lors du concat
-        X_train_df = pd.DataFrame(self.X_train) if not isinstance(self.X_train, pd.DataFrame) else self.X_train.reset_index(drop=True)
+        X_train_df = (
+            pd.DataFrame(self.X_train)
+            if not isinstance(self.X_train, pd.DataFrame)
+            else self.X_train.reset_index(drop=True)
+        )
 
         # Gestion de X_test = None (cas où pas de jeu de test fourni)
         if self.X_test is not None:
-            X_test_df = pd.DataFrame(self.X_test) if not isinstance(self.X_test, pd.DataFrame) else self.X_test.reset_index(drop=True)
+            X_test_df = (
+                pd.DataFrame(self.X_test)
+                if not isinstance(self.X_test, pd.DataFrame)
+                else self.X_test.reset_index(drop=True)
+            )
         else:
             X_test_df = None
 
         # Extraire les valeurs pour ignorer l'index original (qui peut être désaligné après train_test_split)
-        y_train_values = self.y_train.values if hasattr(self.y_train, 'values') else self.y_train
+        y_train_values = self.y_train.values if hasattr(self.y_train, "values") else self.y_train
         y_train_series = pd.Series(y_train_values, name="label")
 
         # DataFrames pandas → H2OFrame
@@ -238,7 +254,9 @@ class autoMl_h2o:
         if X_test_df is not None:
             if self.y_test is not None:
                 # Même traitement pour y_test: extraire les valeurs pour aligner l'index
-                y_test_values = self.y_test.values if hasattr(self.y_test, 'values') else self.y_test
+                y_test_values = (
+                    self.y_test.values if hasattr(self.y_test, "values") else self.y_test
+                )
                 y_test_series = pd.Series(y_test_values, name="label")
                 test_df = pd.concat([X_test_df, y_test_series], axis=1)
             else:
@@ -292,11 +310,13 @@ class autoMl_h2o:
         # Les colonnes possibles : auc, logloss, mean_per_class_error, rmse, mse
         self.best_cv_score = None
         self.best_cv_metric = None
-        for metric_col in ['auc', 'mean_per_class_error', 'logloss', 'rmse', 'mse']:
+        for metric_col in ["auc", "mean_per_class_error", "logloss", "rmse", "mse"]:
             if metric_col in lb_df.columns:
                 self.best_cv_score = lb_df[metric_col].iloc[0]
                 self.best_cv_metric = metric_col
-                print(f"[H2O] Meilleur score CV ({metric_col}): {self.best_cv_score:.4f}", flush=True)
+                print(
+                    f"[H2O] Meilleur score CV ({metric_col}): {self.best_cv_score:.4f}", flush=True
+                )
                 break
 
         # Sauvegarde du leader + leaderboard
@@ -309,8 +329,6 @@ class autoMl_h2o:
         self.analyser_modele()
         print("###################### Fin analyse ! ####################\n")
         self.sauvegarder_features_tous_modeles()
-
-
 
     # ------------------------------------------------------------------
     # Sauvegarde / récupération des fichiers principaux
@@ -337,7 +355,9 @@ class autoMl_h2o:
             )
             print(f"[SAVED] Meilleur modèle sauvegardé ici → {self.best_model_path}")
         except Exception as e:
-            print(f"[AVERTISSEMENT] Impossible de sauvegarder le meilleur modèle (save_model) : {e}")
+            print(
+                f"[AVERTISSEMENT] Impossible de sauvegarder le meilleur modèle (save_model) : {e}"
+            )
 
         # Export MOJO si demandé (toujours dans le dossier du modèle leader)
         if self.save_mojo_flag:
@@ -346,7 +366,6 @@ class autoMl_h2o:
                 print(f"[SAVED] MOJO du meilleur modèle → {mojo_path}")
             except Exception as e:
                 print(f"[AVERTISSEMENT] Impossible de télécharger le MOJO du leader : {e}")
-
 
     def save_leaderboard(self, filename: str = "leaderboard.csv") -> None:
         """
@@ -375,28 +394,25 @@ class autoMl_h2o:
 
         print(self.leaderboard_df.head(10))
 
-    def list_runs(self) -> List[str]:
+    def list_runs(self) -> list[str]:
         """
         Liste les sous-dossiers de base_dir (chaque sous-dossier est un run possible).
         """
         if not os.path.isdir(self.base_dir):
             return []
         return sorted(
-            d for d in os.listdir(self.base_dir)
-            if os.path.isdir(os.path.join(self.base_dir, d))
+            d for d in os.listdir(self.base_dir) if os.path.isdir(os.path.join(self.base_dir, d))
         )
-
-
 
     # ------------------------------------------------------------------
     # Chargement d'un modèle existant
     # ------------------------------------------------------------------
     def charger_modele_existant(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         *,
-        run_name: Optional[str] = None,
-        search_prefixes: Optional[List[str]] = None,
+        run_name: str | None = None,
+        search_prefixes: list[str] | None = None,
     ) -> None:
         """
         Charge un modèle déjà entraîné comme 'leader' (pour réanalyse / prédiction).
@@ -440,10 +456,7 @@ class autoMl_h2o:
             search_prefixes = ["StackedEnsemble", "XGBoost", "GBM", "DRF", "GLM"]
 
         fichiers = os.listdir(self.current_run_dir)
-        candidates = [
-            f for f in fichiers
-            if any(f.startswith(pref) for pref in search_prefixes)
-        ]
+        candidates = [f for f in fichiers if any(f.startswith(pref) for pref in search_prefixes)]
 
         if not candidates:
             raise FileNotFoundError(f"Aucun modèle trouvé dans {self.current_run_dir}")
@@ -461,12 +474,10 @@ class autoMl_h2o:
         print("[INFO] Modèle chargé avec succès !")
         print("ID du modèle :", self.aml.leader.model_id)
 
-
-
     # ------------------------------------------------------------------
     # Analyse du modèle leader
     # ------------------------------------------------------------------
-    def analyser_modele(self) -> Dict[str, Any]:
+    def analyser_modele(self) -> dict[str, Any]:
         """
         Analyse le meilleur modèle H2O AutoML :
 
@@ -503,7 +514,9 @@ class autoMl_h2o:
             print("[INFO] self.test indisponible → pas de performance sur le test.")
 
         if self.current_run_dir is None:
-            print("[AVERTISSEMENT] current_run_dir est None, certains fichiers ne pourront pas être sauvegardés.")
+            print(
+                "[AVERTISSEMENT] current_run_dir est None, certains fichiers ne pourront pas être sauvegardés."
+            )
             return resultats
 
         # 2) Importance des variables + CSV
@@ -521,7 +534,9 @@ class autoMl_h2o:
                         resultats["vi_path"] = vi_path
                         print(f"[INFO] Importance des variables sauvegardée dans : {vi_path}")
                     except Exception as e:
-                        print(f"[AVERTISSEMENT] Impossible de sauvegarder l'importance des variables : {e}")
+                        print(
+                            f"[AVERTISSEMENT] Impossible de sauvegarder l'importance des variables : {e}"
+                        )
             else:
                 print("[INFO] Aucune importance de variable disponible (vi est None).")
         except Exception as e:
@@ -545,7 +560,7 @@ class autoMl_h2o:
                     if vi is not None and not vi.empty:
                         fig, ax = plt.subplots(figsize=(8, 6))
                         vi_top = vi.head(20)
-                        ax.barh(vi_top['variable'][::-1], vi_top['relative_importance'][::-1])
+                        ax.barh(vi_top["variable"][::-1], vi_top["relative_importance"][::-1])
                         plt.tight_layout()
                         plot_path = os.path.join(self.current_run_dir, "varimp_plot.png")
                         plt.savefig(plot_path)
@@ -582,7 +597,7 @@ class autoMl_h2o:
     # ------------------------------------------------------------------
     # Exploration des features de tous les modèles
     # ------------------------------------------------------------------
-    def sauvegarder_features_tous_modeles(self) -> Dict[str, Any]:
+    def sauvegarder_features_tous_modeles(self) -> dict[str, Any]:
         """
         Sauvegarde, pour TOUS les modèles du leaderboard AutoML :
         - les features internes utilisées
@@ -695,10 +710,16 @@ class autoMl_h2o:
                     if summary is not None:
                         try:
                             summary_df = summary.as_data_frame()
-                            summary_df.to_csv(os.path.join(model_dir, "summary.csv"), index=False, encoding="utf-8")
+                            summary_df.to_csv(
+                                os.path.join(model_dir, "summary.csv"),
+                                index=False,
+                                encoding="utf-8",
+                            )
                         except Exception:
                             # si summary n'est pas un frame pandas convertible, essayer str()
-                            with open(os.path.join(model_dir, "summary.txt"), "w", encoding="utf-8") as f:
+                            with open(
+                                os.path.join(model_dir, "summary.txt"), "w", encoding="utf-8"
+                            ) as f:
                                 f.write(str(summary))
                 except Exception as e:
                     print(f"[WARN] Impossible de générer summary pour {mid}: {e}")
@@ -707,7 +728,11 @@ class autoMl_h2o:
                 try:
                     vi = m.varimp(use_pandas=True)
                     if vi is not None:
-                        vi.to_csv(os.path.join(model_dir, "variable_importance.csv"), index=False, encoding="utf-8")
+                        vi.to_csv(
+                            os.path.join(model_dir, "variable_importance.csv"),
+                            index=False,
+                            encoding="utf-8",
+                        )
                 except Exception as e:
                     # Ne pas stopper si pas de varimp (ex: GLM sans varimp)
                     print(f"[DEBUG] Pas d'importance ou erreur pour varimp de {mid}: {e}")
@@ -715,7 +740,9 @@ class autoMl_h2o:
                 # model_raw.json
                 try:
                     raw_json = m.as_json()
-                    with open(os.path.join(model_dir, "model_raw.json"), "w", encoding="utf-8") as f:
+                    with open(
+                        os.path.join(model_dir, "model_raw.json"), "w", encoding="utf-8"
+                    ) as f:
                         json.dump(raw_json, f, indent=2, ensure_ascii=False)
                 except Exception as e:
                     print(f"[WARN] Impossible d'exporter model_raw.json pour {mid}: {e}")
@@ -733,7 +760,11 @@ class autoMl_h2o:
                     if "StackedEnsemble" in mid:
                         base_models = getattr(m, "model_base_names", []) or []
                         df_base = pd.DataFrame(base_models, columns=["base_model_id"])
-                        df_base.to_csv(os.path.join(model_dir, "base_models.csv"), index=False, encoding="utf-8")
+                        df_base.to_csv(
+                            os.path.join(model_dir, "base_models.csv"),
+                            index=False,
+                            encoding="utf-8",
+                        )
 
                         sub_dir = os.path.join(model_dir, "base_models")
                         self._ensure_dir(sub_dir)
@@ -773,7 +804,9 @@ class autoMl_h2o:
                 for col in ["used_features", "original_features", "ignored_columns"]:
                     if col in df_csv.columns:
                         df_csv[col] = df_csv[col].apply(
-                            lambda x: ",".join(map(str, x)) if isinstance(x, (list, tuple)) else str(x)
+                            lambda x: ",".join(map(str, x))
+                            if isinstance(x, (list, tuple))
+                            else str(x)
                         )
                 df_csv.to_csv(csv_path, index=False, encoding="utf-8")
                 print(f"\n[SAVED] Features de tous les modèles → {csv_path}")
@@ -860,16 +893,28 @@ class autoMl_h2o:
 
                 # Utiliser les y_test originaux si la taille correspond
                 if self.y_test is not None:
-                    y_test_values = self.y_test.values if hasattr(self.y_test, 'values') else np.array(self.y_test)
+                    y_test_values = (
+                        self.y_test.values
+                        if hasattr(self.y_test, "values")
+                        else np.array(self.y_test)
+                    )
                     if len(y_test_values) == len(y_pred):
                         # S'assurer que les types correspondent (convertir en int si nécessaire)
-                        y_true = y_test_values.astype(int) if np.issubdtype(y_test_values.dtype, np.number) else y_test_values
+                        y_true = (
+                            y_test_values.astype(int)
+                            if np.issubdtype(y_test_values.dtype, np.number)
+                            else y_test_values
+                        )
                         # Convertir y_pred en int aussi pour la cohérence
-                        y_pred = y_pred.astype(int) if np.issubdtype(y_pred.dtype, np.number) else y_pred
+                        y_pred = (
+                            y_pred.astype(int) if np.issubdtype(y_pred.dtype, np.number) else y_pred
+                        )
                         print("[INFO] Utilisation des y_test originaux pour les métriques")
                     else:
                         # Tailles différentes, utiliser les labels du H2OFrame
-                        print(f"[INFO] Taille y_test ({len(y_test_values)}) != y_pred ({len(y_pred)}), utilisation labels H2O")
+                        print(
+                            f"[INFO] Taille y_test ({len(y_test_values)}) != y_pred ({len(y_pred)}), utilisation labels H2O"
+                        )
                         y_true_df = self.test["label"].as_data_frame()
                         y_true = y_true_df.values.ravel()
                         # Convertir en int si possible
@@ -915,8 +960,7 @@ class autoMl_h2o:
                 test_pd = self.test.as_data_frame()
                 preds_pd = preds.as_data_frame()
                 merged = pd.concat(
-                    [test_pd.reset_index(drop=True),
-                    preds_pd.reset_index(drop=True)],
+                    [test_pd.reset_index(drop=True), preds_pd.reset_index(drop=True)],
                     axis=1,
                 )
                 preds_path = os.path.join(self.current_run_dir, filename)
@@ -937,7 +981,6 @@ class autoMl_h2o:
 
         return perf
 
-
     # ------------------------------------------------------------------
     # Pipeline complet: run + prédiction + arrêt cluster
     # ------------------------------------------------------------------
@@ -945,7 +988,7 @@ class autoMl_h2o:
         self,
         time_budget: int,
         *,
-        run_name: Optional[str] = None,
+        run_name: str | None = None,
         save_preds: bool = True,
         shutdown_after: bool = True,
     ):

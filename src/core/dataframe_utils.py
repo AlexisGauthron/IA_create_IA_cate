@@ -1,10 +1,13 @@
 import pandas as pd
 
-def get_unique_columns_dataframe(df1: pd.DataFrame, df2: pd.DataFrame, target_col: str) -> pd.DataFrame:
+
+def get_unique_columns_dataframe(
+    df1: pd.DataFrame, df2: pd.DataFrame, target_col: str
+) -> pd.DataFrame:
     """
     Retourne un DataFrame contenant uniquement les colonnes différentes
     entre df1 et df2 (différence symétrique), tout en conservant la colonne cible.
-    
+
     Hypothèse : df1 et df2 ont le même nombre de lignes.
     Aucun NaN n'est ajouté.
     """
@@ -16,7 +19,7 @@ def get_unique_columns_dataframe(df1: pd.DataFrame, df2: pd.DataFrame, target_co
     # Colonnes uniques dans l'un ou l'autre
     unique_cols = cols1.symmetric_difference(cols2)
 
-    print("\n\n\nUNIAUYEEHEHEIUAGEG",unique_cols)
+    print("\n\n\nUNIAUYEEHEHEIUAGEG", unique_cols)
     # Ajouter la colonne cible
     unique_cols.add(target_col)
 
@@ -26,15 +29,12 @@ def get_unique_columns_dataframe(df1: pd.DataFrame, df2: pd.DataFrame, target_co
     return df_result
 
 
-
-
-
 def drop_columns(df: pd.DataFrame, columns_to_drop: list):
     """
     Retourne un nouveau DataFrame sans les colonnes spécifiées dans 'columns_to_drop'.
     Ignore automatiquement les colonnes inexistantes.
     """
-    return df.drop(columns=columns_to_drop, errors='ignore').copy()
+    return df.drop(columns=columns_to_drop, errors="ignore").copy()
 
 
 def count_features(df: pd.DataFrame) -> int:

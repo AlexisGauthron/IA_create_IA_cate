@@ -3,33 +3,36 @@
 Tracker pour suivre l'évolution des features générées par LLMFE.
 Stocke l'historique et génère des visualisations/rapports.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from datetime import datetime
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field, asdict
 import re
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
 class FeatureInfo:
     """Information sur une feature créée/modifiée."""
+
     name: str
     operation: str  # "created", "dropped", "transformed"
-    source_columns: List[str] = field(default_factory=list)
+    source_columns: list[str] = field(default_factory=list)
     description: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class SampleEvolution:
     """Évolution d'un sample (une itération LLM)."""
+
     sample_order: int
-    score: Optional[float]
+    score: float | None
     score_delta: float  # Différence avec le meilleur score précédent
     is_best: bool
 
@@ -42,17 +45,21 @@ class SampleEvolution:
     function_code: str
 
     # Features
-    features_created: List[FeatureInfo] = field(default_factory=list)
-    features_dropped: List[str] = field(default_factory=list)
-    features_transformed: List[FeatureInfo] = field(default_factory=list)
+    features_created: list[FeatureInfo] = field(default_factory=list)
+    features_dropped: list[str] = field(default_factory=list)
+    features_transformed: list[FeatureInfo] = field(default_factory=list)
 
     # Erreur éventuelle
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d['features_created'] = [f.to_dict() if isinstance(f, FeatureInfo) else f for f in self.features_created]
-        d['features_transformed'] = [f.to_dict() if isinstance(f, FeatureInfo) else f for f in self.features_transformed]
+        d["features_created"] = [
+            f.to_dict() if isinstance(f, FeatureInfo) else f for f in self.features_created
+        ]
+        d["features_transformed"] = [
+            f.to_dict() if isinstance(f, FeatureInfo) else f for f in self.features_transformed
+        ]
         return d
 
 
@@ -82,8 +89,8 @@ class EvolutionTracker:
     def __init__(
         self,
         output_dir: str | Path,
-        original_features: Optional[List[str]] = None,
-        target_column: Optional[str] = None,
+        original_features: list[str] | None = None,
+        target_column: str | None = None,
     ):
         """
         Args:
@@ -98,9 +105,9 @@ class EvolutionTracker:
         self.target_column = target_column
 
         # Historique
-        self.samples: List[SampleEvolution] = []
-        self.best_score: Optional[float] = None
-        self.best_sample_order: Optional[int] = None
+        self.samples: list[SampleEvolution] = []
+        self.best_score: float | None = None
+        self.best_sample_order: int | None = None
 
         # Métriques globales
         self.start_time = datetime.now()
@@ -108,16 +115,16 @@ class EvolutionTracker:
         self.total_errors = 0
 
         # Tracking des features au fil du temps
-        self.feature_timeline: List[Dict[str, Any]] = []
+        self.feature_timeline: list[dict[str, Any]] = []
 
     def record_sample(
         self,
         sample_order: int,
-        score: Optional[float],
+        score: float | None,
         function_code: str,
         sample_time: float = 0.0,
         evaluate_time: float = 0.0,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> SampleEvolution:
         """
         Enregistre un nouveau sample évalué.
@@ -199,18 +206,20 @@ class EvolutionTracker:
             col_name = match.group(2)
             if col_name not in self.original_features:
                 # Essayer de trouver les colonnes sources
-                line_start = code.rfind('\n', 0, match.start()) + 1
-                line_end = code.find('\n', match.end())
-                line = code[line_start:line_end if line_end != -1 else len(code)]
+                line_start = code.rfind("\n", 0, match.start()) + 1
+                line_end = code.find("\n", match.end())
+                line = code[line_start : line_end if line_end != -1 else len(code)]
 
                 source_cols = self._extract_source_columns(line)
 
-                features_created.append(FeatureInfo(
-                    name=col_name,
-                    operation="created",
-                    source_columns=source_cols,
-                    description=self._infer_description(col_name, line)
-                ))
+                features_created.append(
+                    FeatureInfo(
+                        name=col_name,
+                        operation="created",
+                        source_columns=source_cols,
+                        description=self._infer_description(col_name, line),
+                    )
+                )
 
         # Pattern pour détecter les colonnes supprimées
         # .drop(['col1', 'col2'], ...) ou .drop(columns=['col1'])
@@ -226,20 +235,24 @@ class EvolutionTracker:
 
         # Pattern pour détecter les transformations
         # df['ExistingCol'] = df['ExistingCol'].transform(...)
-        transform_pattern = r"df(?:_output)?\[(['\"])(\w+)\1\]\s*=.*\2.*\.(fillna|replace|map|apply|astype)"
+        transform_pattern = (
+            r"df(?:_output)?\[(['\"])(\w+)\1\]\s*=.*\2.*\.(fillna|replace|map|apply|astype)"
+        )
         for match in re.finditer(transform_pattern, code):
             col_name = match.group(2)
             transform_type = match.group(3)
             if col_name in self.original_features:
-                features_transformed.append(FeatureInfo(
-                    name=col_name,
-                    operation="transformed",
-                    description=f"{transform_type} applied"
-                ))
+                features_transformed.append(
+                    FeatureInfo(
+                        name=col_name,
+                        operation="transformed",
+                        description=f"{transform_type} applied",
+                    )
+                )
 
         return features_created, list(set(features_dropped)), features_transformed
 
-    def _extract_source_columns(self, line: str) -> List[str]:
+    def _extract_source_columns(self, line: str) -> list[str]:
         """Extrait les colonnes sources utilisées dans une ligne de code."""
         source_cols = []
         # Pattern: df['col'] ou df_input['col']
@@ -256,27 +269,27 @@ class EvolutionTracker:
 
         # Détection basée sur le nom
         name_lower = col_name.lower()
-        if 'family' in name_lower and 'size' in name_lower:
+        if "family" in name_lower and "size" in name_lower:
             descriptions.append("Family size calculation")
-        elif 'title' in name_lower:
+        elif "title" in name_lower:
             descriptions.append("Title extraction from name")
-        elif 'age' in name_lower and 'bin' in name_lower:
+        elif "age" in name_lower and "bin" in name_lower:
             descriptions.append("Age binning")
-        elif 'fare' in name_lower and 'per' in name_lower:
+        elif "fare" in name_lower and "per" in name_lower:
             descriptions.append("Fare normalization")
-        elif 'alone' in name_lower:
+        elif "alone" in name_lower:
             descriptions.append("Is alone indicator")
 
         # Détection basée sur les opérations
-        if '+' in line:
+        if "+" in line:
             descriptions.append("Sum operation")
-        if '/' in line:
+        if "/" in line:
             descriptions.append("Division operation")
-        if '*' in line:
+        if "*" in line:
             descriptions.append("Multiplication operation")
-        if '.str.' in line:
+        if ".str." in line:
             descriptions.append("String operation")
-        if '.astype(int)' in line or '.astype(bool)' in line:
+        if ".astype(int)" in line or ".astype(bool)" in line:
             descriptions.append("Type conversion")
 
         return " | ".join(descriptions) if descriptions else "Feature engineering"
@@ -290,12 +303,12 @@ class EvolutionTracker:
             "features_dropped": evolution.features_dropped,
             "features_transformed": [f.name for f in evolution.features_transformed],
             "total_features": len(self.original_features)
-                              + len(evolution.features_created)
-                              - len(evolution.features_dropped),
+            + len(evolution.features_created)
+            - len(evolution.features_dropped),
         }
         self.feature_timeline.append(entry)
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Retourne un résumé de l'évolution."""
         valid_samples = [s for s in self.samples if s.score is not None]
         scores = [s.score for s in valid_samples]
@@ -304,7 +317,7 @@ class EvolutionTracker:
         all_created = {}
         for s in self.samples:
             for f in s.features_created:
-                name = f.name if isinstance(f, FeatureInfo) else f.get('name', str(f))
+                name = f.name if isinstance(f, FeatureInfo) else f.get("name", str(f))
                 all_created[name] = all_created.get(name, 0) + 1
 
         # Features les plus supprimées
@@ -332,11 +345,17 @@ class EvolutionTracker:
                 "best_sample_order": self.best_sample_order,
                 "worst_score": min(scores) if scores else None,
                 "mean_score": sum(scores) / len(scores) if scores else None,
-                "score_improvement": (self.best_score - scores[0]) if scores and len(scores) > 1 else 0,
+                "score_improvement": (self.best_score - scores[0])
+                if scores and len(scores) > 1
+                else 0,
             },
             "feature_analysis": {
-                "most_created_features": dict(sorted(all_created.items(), key=lambda x: -x[1])[:10]),
-                "most_dropped_features": dict(sorted(all_dropped.items(), key=lambda x: -x[1])[:10]),
+                "most_created_features": dict(
+                    sorted(all_created.items(), key=lambda x: -x[1])[:10]
+                ),
+                "most_dropped_features": dict(
+                    sorted(all_dropped.items(), key=lambda x: -x[1])[:10]
+                ),
             },
             "timeline": self.feature_timeline,
         }
@@ -358,7 +377,7 @@ class EvolutionTracker:
             "samples": [s.to_dict() for s in self.samples],
         }
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         print(f"📊 Historique sauvegardé: {filepath}")
@@ -376,20 +395,27 @@ class EvolutionTracker:
 
         records = []
         for s in self.samples:
-            records.append({
-                "sample_order": s.sample_order,
-                "score": s.score,
-                "score_delta": s.score_delta,
-                "is_best": s.is_best,
-                "sample_time": s.sample_time,
-                "evaluate_time": s.evaluate_time,
-                "n_features_created": len(s.features_created),
-                "n_features_dropped": len(s.features_dropped),
-                "features_created": ",".join([f.name if isinstance(f, FeatureInfo) else str(f) for f in s.features_created]),
-                "features_dropped": ",".join(s.features_dropped),
-                "has_error": s.error is not None,
-                "timestamp": s.timestamp,
-            })
+            records.append(
+                {
+                    "sample_order": s.sample_order,
+                    "score": s.score,
+                    "score_delta": s.score_delta,
+                    "is_best": s.is_best,
+                    "sample_time": s.sample_time,
+                    "evaluate_time": s.evaluate_time,
+                    "n_features_created": len(s.features_created),
+                    "n_features_dropped": len(s.features_dropped),
+                    "features_created": ",".join(
+                        [
+                            f.name if isinstance(f, FeatureInfo) else str(f)
+                            for f in s.features_created
+                        ]
+                    ),
+                    "features_dropped": ",".join(s.features_dropped),
+                    "has_error": s.error is not None,
+                    "timestamp": s.timestamp,
+                }
+            )
 
         df = pd.DataFrame(records)
         df.to_parquet(filepath, index=False)
@@ -416,13 +442,13 @@ class EvolutionTracker:
 
         html_content = self._generate_html_report(summary, scores_data)
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         print(f"📄 Rapport HTML généré: {filepath}")
         return filepath
 
-    def _generate_html_report(self, summary: Dict, scores_data: List[tuple]) -> str:
+    def _generate_html_report(self, summary: dict, scores_data: list[tuple]) -> str:
         """Génère le contenu HTML du rapport."""
 
         # Convertir les données pour Chart.js
@@ -437,7 +463,12 @@ class EvolutionTracker:
             delta_str = f"{s.score_delta:+.4f}" if s.score else "-"
             best_marker = "🏆" if s.is_best else ""
 
-            created = ", ".join([f.name if isinstance(f, FeatureInfo) else str(f) for f in s.features_created]) or "-"
+            created = (
+                ", ".join(
+                    [f.name if isinstance(f, FeatureInfo) else str(f) for f in s.features_created]
+                )
+                or "-"
+            )
             dropped = ", ".join(s.features_dropped) or "-"
 
             samples_rows += f"""
@@ -452,7 +483,7 @@ class EvolutionTracker:
             """
 
         # Feature frequency
-        feature_freq = summary['feature_analysis']['most_created_features']
+        feature_freq = summary["feature_analysis"]["most_created_features"]
         feature_freq_rows = ""
         for name, count in feature_freq.items():
             feature_freq_rows += f"<tr><td>{name}</td><td>{count}</td></tr>"
@@ -714,7 +745,9 @@ class EvolutionTracker:
         print("                           ÉVOLUTION DES FEATURES LLMFE")
         print("=" * 100)
 
-        print(f"\n{'#':<4} {'Score':<12} {'Delta':<10} {'Features Créées':<30} {'Features Supprimées':<25}")
+        print(
+            f"\n{'#':<4} {'Score':<12} {'Delta':<10} {'Features Créées':<30} {'Features Supprimées':<25}"
+        )
         print("-" * 100)
 
         for s in self.samples:
@@ -723,7 +756,9 @@ class EvolutionTracker:
             delta = f"{s.score_delta:+.4f}" if s.score else "-"
             best = " 🏆" if s.is_best else ""
 
-            created = ", ".join([f.name if isinstance(f, FeatureInfo) else str(f) for f in s.features_created[:3]])
+            created = ", ".join(
+                [f.name if isinstance(f, FeatureInfo) else str(f) for f in s.features_created[:3]]
+            )
             if len(s.features_created) > 3:
                 created += f" (+{len(s.features_created)-3})"
             created = created or "-"
@@ -739,13 +774,15 @@ class EvolutionTracker:
 
         # Résumé
         summary = self.get_summary()
-        print(f"\n📊 Résumé:")
-        print(f"   • Meilleur score: {summary['scores']['best_score']:.4f} (sample #{summary['scores']['best_sample_order']})")
+        print("\n📊 Résumé:")
+        print(
+            f"   • Meilleur score: {summary['scores']['best_score']:.4f} (sample #{summary['scores']['best_sample_order']})"
+        )
         print(f"   • Amélioration: {summary['scores']['score_improvement']:+.4f}")
         print(f"   • Taux de succès: {summary['statistics']['success_rate']*100:.1f}%")
 
-        if summary['feature_analysis']['most_created_features']:
-            top_feature = list(summary['feature_analysis']['most_created_features'].keys())[0]
+        if summary["feature_analysis"]["most_created_features"]:
+            top_feature = list(summary["feature_analysis"]["most_created_features"].keys())[0]
             print(f"   • Feature la plus créée: {top_feature}")
 
         print("=" * 100 + "\n")

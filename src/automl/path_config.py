@@ -23,10 +23,10 @@ Structure des dossiers créés:
 Note: Le timestamp n'est plus dans la structure des dossiers,
 il est stocké uniquement dans les métadonnées.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List
 
 from src.core.base_path_config import BasePathConfig
 
@@ -51,7 +51,7 @@ class AutoMLPathConfig(BasePathConfig):
     def __init__(
         self,
         project_name: str,
-        base_dir: Optional[str | Path] = None,
+        base_dir: str | Path | None = None,
         time_budget: int = 60,
     ):
         """
@@ -84,7 +84,7 @@ class AutoMLPathConfig(BasePathConfig):
 
     # === Implémentation des méthodes abstraites ===
 
-    def _get_subdirectories(self) -> List[Path]:
+    def _get_subdirectories(self) -> list[Path]:
         """Retourne les sous-dossiers spécifiques à AutoML."""
         return [
             self.flaml_dir,
@@ -94,18 +94,20 @@ class AutoMLPathConfig(BasePathConfig):
             self.results_dir,
         ]
 
-    def get_all_paths(self) -> Dict[str, str]:
+    def get_all_paths(self) -> dict[str, str]:
         """Retourne tous les chemins configurés."""
         paths = self.get_base_paths()
-        paths.update({
-            "flaml_dir": str(self.flaml_dir),
-            "autogluon_dir": str(self.autogluon_dir),
-            "tpot_dir": str(self.tpot_dir),
-            "h2o_dir": str(self.h2o_dir),
-            "results_dir": str(self.results_dir),
-            "comparison_path": str(self.comparison_path),
-            "leaderboard_path": str(self.leaderboard_path),
-        })
+        paths.update(
+            {
+                "flaml_dir": str(self.flaml_dir),
+                "autogluon_dir": str(self.autogluon_dir),
+                "tpot_dir": str(self.tpot_dir),
+                "h2o_dir": str(self.h2o_dir),
+                "results_dir": str(self.results_dir),
+                "comparison_path": str(self.comparison_path),
+                "leaderboard_path": str(self.leaderboard_path),
+            }
+        )
         return paths
 
     # === Chemins des fichiers spécifiques ===
@@ -138,7 +140,9 @@ class AutoMLPathConfig(BasePathConfig):
             "h2o": self.h2o_dir,
         }
         if framework not in mapping:
-            raise ValueError(f"Framework '{framework}' inconnu. Disponibles: {list(mapping.keys())}")
+            raise ValueError(
+                f"Framework '{framework}' inconnu. Disponibles: {list(mapping.keys())}"
+            )
         return mapping[framework]
 
     def get_model_path(self, framework: str, filename: str = "model.pkl") -> Path:
@@ -168,7 +172,7 @@ class AutoMLPathConfig(BasePathConfig):
 
     # === Méthodes de sauvegarde spécifiques ===
 
-    def save_comparison(self, scores: Dict[str, float]) -> Path:
+    def save_comparison(self, scores: dict[str, float]) -> Path:
         """
         Sauvegarde la comparaison des scores entre frameworks.
 
@@ -193,8 +197,8 @@ class AutoMLPathConfig(BasePathConfig):
         target_col: str,
         n_rows: int,
         n_features: int,
-        frameworks_run: List[str],
-        scores: Dict[str, float],
+        frameworks_run: list[str],
+        scores: dict[str, float],
     ) -> Path:
         """
         Sauvegarde les métadonnées spécifiques à AutoML.

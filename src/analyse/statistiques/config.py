@@ -1,6 +1,7 @@
 # src/feature_analysis/config.py
 from dataclasses import dataclass
 
+
 @dataclass
 class FEAnalysisConfig:
     max_classes_for_classif: int = 20

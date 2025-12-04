@@ -1,11 +1,11 @@
-from pathlib import Path
-from typing import Tuple, Optional, Union
-import pandas as pd
 import csv
-from sklearn.datasets import load_breast_cancer, load_iris, load_wine, load_digits
+from pathlib import Path
 
+import pandas as pd
+from sklearn.datasets import load_breast_cancer, load_digits, load_iris, load_wine
 
 # ============== Fonctions de chargement de datasets sklearn ==============
+
 
 def load_datasets_breast_cancer() -> pd.DataFrame:
     """Charge le dataset breast_cancer de sklearn."""
@@ -13,17 +13,20 @@ def load_datasets_breast_cancer() -> pd.DataFrame:
     ds = load_breast_cancer(as_frame=True)
     return ds.frame
 
+
 def load_datasets_iris() -> pd.DataFrame:
     """Charge le dataset iris de sklearn."""
     print("[INFO] Load datasets iris\n")
     ds = load_iris(as_frame=True)
     return ds.frame
 
+
 def load_datasets_wine() -> pd.DataFrame:
     """Charge le dataset wine de sklearn."""
     print("[INFO] Load datasets wine\n")
     ds = load_wine(as_frame=True)
     return ds.frame
+
 
 def load_datasets_digits() -> pd.DataFrame:
     """Charge le dataset digits de sklearn."""
@@ -34,15 +37,16 @@ def load_datasets_digits() -> pd.DataFrame:
 
 # ============== Fonction de chargement train/test depuis CSV ==============
 
+
 def csv_to_dataframe_train_test(
-    nom_dossier: Union[str, Path],
+    nom_dossier: str | Path,
     *,
     sep: str = ",",
     encoding: str = "utf-8",
     train_pattern: str = "train",
     test_pattern: str = "test",
     **read_csv_kwargs,
-) -> Tuple[pd.DataFrame, Optional[pd.DataFrame]]:
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
     """
     Charge les fichiers CSV contenant "train" et (optionnellement) "test" dans leurs noms.
 
@@ -63,12 +67,8 @@ def csv_to_dataframe_train_test(
     if not csv_files:
         raise FileNotFoundError(f"[ERROR] Aucun fichier CSV trouve dans '{nom_dossier}'.")
 
-    def _find_file(pattern: str, *, required: bool = True) -> Optional[Path]:
-        matches = [
-            fichier
-            for fichier in csv_files
-            if pattern.lower() in fichier.stem.lower()
-        ]
+    def _find_file(pattern: str, *, required: bool = True) -> Path | None:
+        matches = [fichier for fichier in csv_files if pattern.lower() in fichier.stem.lower()]
         if not matches:
             if required:
                 raise FileNotFoundError(
@@ -103,6 +103,7 @@ def csv_to_dataframe_train_test(
 
 # ============== Fonctions de sauvegarde/lecture CSV ==============
 
+
 def to_csv(
     df: pd.DataFrame,
     nom_fichier: str,
@@ -111,10 +112,10 @@ def to_csv(
     sep: str = ",",
     encoding: str = "utf-8",
     index: bool = False,
-    mode: str = "w",          # "w" écrase, "x" interdit d'écraser, "a" ajoute à la fin
+    mode: str = "w",  # "w" écrase, "x" interdit d'écraser, "a" ajoute à la fin
     header: bool = True,
     na_rep: str = "",
-    quoting: int = csv.QUOTE_MINIMAL
+    quoting: int = csv.QUOTE_MINIMAL,
 ) -> Path:
     """
     Sauvegarde un DataFrame dans un fichier CSV.
@@ -133,7 +134,6 @@ def to_csv(
     Retour:
       - Path vers le fichier écrit.
     """
-
 
     if not isinstance(df, pd.DataFrame):
         raise TypeError("[ERROR] df doit être un pandas.DataFrame\n")
@@ -160,13 +160,15 @@ def to_csv(
 
 
 import pandas as pd
-from typing import Optional
 
-def to_dataframe(nom_fichier: str, 
-                 nom_dossier: str = "Data",
-                    index_col: Optional[str] = None, 
-                    parse_dates: Optional[list] = None,
-                    encoding: str = "utf-8") -> pd.DataFrame:
+
+def to_dataframe(
+    nom_fichier: str,
+    nom_dossier: str = "Data",
+    index_col: str | None = None,
+    parse_dates: list | None = None,
+    encoding: str = "utf-8",
+) -> pd.DataFrame:
     """
     Lit un CSV et renvoie un DataFrame pandas.
 
@@ -180,7 +182,12 @@ def to_dataframe(nom_fichier: str,
     - pd.DataFrame
     """
     try:
-        df = pd.read_csv(f"{nom_dossier}/{nom_fichier}", index_col=index_col, parse_dates=parse_dates, encoding=encoding)
+        df = pd.read_csv(
+            f"{nom_dossier}/{nom_fichier}",
+            index_col=index_col,
+            parse_dates=parse_dates,
+            encoding=encoding,
+        )
         print(f"[INFO] CSV chargé avec succès : {df.shape[0]} lignes, {df.shape[1]} colonnes")
         return df
     except FileNotFoundError:
@@ -189,4 +196,3 @@ def to_dataframe(nom_fichier: str,
         raise ValueError(f"Erreur parsing CSV : {e}")
     except Exception as e:
         raise RuntimeError(f"Erreur inconnue lors de la lecture du CSV : {e}")
-

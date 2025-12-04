@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Any, Dict, List
+
+from typing import Any
 
 
 def normalize_string_whitespace(obj: Any) -> Any:

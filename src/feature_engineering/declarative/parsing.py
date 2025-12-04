@@ -1,13 +1,11 @@
 # parsing.py
 import json
-from typing import Any
 from dataclasses import dataclass, field
-from typing import List, Optional
-
 
 # ----------------------------------------------------------------------
 # Dataclasses : représentation structurée du plan proposé par le LLM
 # ----------------------------------------------------------------------
+
 
 @dataclass
 class FeatureTransformationSpec:
@@ -19,14 +17,15 @@ class FeatureTransformationSpec:
       - type = "categorical_encoding", encoding = "target_encoding"
       - type = "text_embedding", model = "sentence-transformers/all-MiniLM-L6-v2"
     """
+
     name: str
     type: str
-    inputs: List[str] = field(default_factory=list)
-    transformation: Optional[str] = None
-    descriptions_transformations: Optional[str] = None
-    encoding: Optional[str] = None
-    model: Optional[str] = None
-    reason: Optional[str] = None
+    inputs: list[str] = field(default_factory=list)
+    transformation: str | None = None
+    descriptions_transformations: str | None = None
+    encoding: str | None = None
+    model: str | None = None
+    reason: str | None = None
 
 
 @dataclass
@@ -38,10 +37,11 @@ class LLMFEPlan:
     - global_notes : recommandations globales sur le FE / le problème
     - questions_for_user : questions à poser à l'humain pour affiner le FE
     """
-    features_plan: List[FeatureTransformationSpec] = field(default_factory=list)
-    global_notes: List[str] = field(default_factory=list)
-    questions_for_user: List[str] = field(default_factory=list)
-    raw_response: Optional[str] = None  # en cas de debug
+
+    features_plan: list[FeatureTransformationSpec] = field(default_factory=list)
+    global_notes: list[str] = field(default_factory=list)
+    questions_for_user: list[str] = field(default_factory=list)
+    raw_response: str | None = None  # en cas de debug
 
 
 def parse_llm_response(raw_response: str) -> LLMFEPlan:

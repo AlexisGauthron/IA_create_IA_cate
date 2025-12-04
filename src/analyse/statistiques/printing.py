@@ -1,7 +1,8 @@
 # src/feature_analysis/printing.py
-from typing import Dict, Any
+from typing import Any
 
-def print_fe_report(report: Dict[str, Any]) -> None:
+
+def print_fe_report(report: dict[str, Any]) -> None:
     """Affichage texte lisible du rapport de feature engineering."""
 
     g = report["global"]

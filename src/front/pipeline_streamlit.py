@@ -14,6 +14,7 @@ ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 import os
+
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
 
@@ -30,10 +31,10 @@ if env_path.exists():
 
     # LLMFE utilise API_KEY comme nom de variable (pas OPENAI_API_KEY)
     # On copie la valeur pour que LLMFE puisse fonctionner
-    openai_key = os.getenv('OPENAI_API_KEY')
+    openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
-        os.environ['API_KEY'] = openai_key
-        print(f"[STREAMLIT] API_KEY configurée pour LLMFE")
+        os.environ["API_KEY"] = openai_key
+        print("[STREAMLIT] API_KEY configurée pour LLMFE")
 else:
     print(f"[STREAMLIT] ATTENTION: .env non trouvé à {env_path}")
 
@@ -43,15 +44,14 @@ from src.core.config import settings  # noqa: E402
 # Debug: Vérifier que la clé est bien chargée
 print(f"[DEBUG] OpenAI configuré: {settings.is_configured('openai')}")
 
-import streamlit as st
-import pandas as pd
-from typing import Optional, Dict, Any, List
 import json
 import time
 
+import pandas as pd
+import streamlit as st
+
 from src.front.css import CUSTOM_CSS
 from src.front.ui_helper import card_block
-
 
 # =============================================================================
 # Configuration de la page
@@ -77,29 +77,23 @@ def init_session_state():
         "df_test": None,
         "target_col": None,
         "project_name": "",
-
         # Étape courante
         "current_step": 0,  # 0=Upload, 1=Config, 2=Analyse, 3=Chat, 4=FE, 5=AutoML, 6=Results
-
         # Agent métier
         "chat_history": [],
         "agent_context": {},
         "analysis_complete": False,
-
         # Résultats
         "stats_report": None,
         "correlations_df": None,  # DataFrame des corrélations features/target
         "fe_results": None,
         "automl_results": None,
-
         # Configuration LLM Agent Métier
         "agent_provider": "openai",
         "agent_model": "gpt-3.5-turbo",
-
         # Configuration LLM Feature Engineering
         "fe_provider": "openai",
         "fe_model": "gpt-4o-mini",
-
         # Autres configs
         "is_regression": False,
         "max_fe_samples": 10,
@@ -117,9 +111,11 @@ init_session_state()
 # Composants UI
 # =============================================================================
 
+
 def render_header():
     """Affiche le header principal."""
-    st.markdown("""
+    st.markdown(
+        """
     <div style="text-align: center; padding: 1rem 0;">
         <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">
             🤖 ML Pipeline Assistant
@@ -128,7 +124,9 @@ def render_header():
             Analyse → Feature Engineering → AutoML
         </p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_progress_bar():
@@ -158,12 +156,15 @@ def render_progress_bar():
                 color = "#6b7280"  # Gris - à venir
                 opacity = 0.5
 
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div style="text-align: center; opacity: {opacity};">
                 <div style="font-size: 1.5rem; color: {color};">{icon}</div>
                 <div style="font-size: 0.75rem; color: {color};">{label}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -202,7 +203,11 @@ def render_sidebar():
         else:
             agent_models = ["llama3.1", "mistral", "codellama"]
 
-        current_agent_idx = agent_models.index(st.session_state.agent_model) if st.session_state.agent_model in agent_models else 0
+        current_agent_idx = (
+            agent_models.index(st.session_state.agent_model)
+            if st.session_state.agent_model in agent_models
+            else 0
+        )
         st.session_state.agent_model = st.selectbox(
             "Modèle (Agent)",
             agent_models,
@@ -226,7 +231,11 @@ def render_sidebar():
         else:
             fe_models = ["llama3.1", "mistral", "codellama"]
 
-        current_fe_idx = fe_models.index(st.session_state.fe_model) if st.session_state.fe_model in fe_models else 0
+        current_fe_idx = (
+            fe_models.index(st.session_state.fe_model)
+            if st.session_state.fe_model in fe_models
+            else 0
+        )
         st.session_state.fe_model = st.selectbox(
             "Modèle (FE)",
             fe_models,
@@ -246,6 +255,7 @@ def render_sidebar():
 # =============================================================================
 # Étape 0: Upload des données
 # =============================================================================
+
 
 def render_upload_step():
     """Étape d'upload des fichiers CSV."""
@@ -301,20 +311,21 @@ def render_upload_step():
 
 def detect_separator(file) -> str:
     """Détecte le séparateur d'un fichier CSV."""
-    first_line = file.readline().decode('utf-8')
+    first_line = file.readline().decode("utf-8")
     file.seek(0)
 
-    candidates = {',': 0, ';': 0, '\t': 0, '|': 0}
+    candidates = {",": 0, ";": 0, "\t": 0, "|": 0}
     for sep in candidates:
         candidates[sep] = first_line.count(sep)
 
     best_sep = max(candidates, key=candidates.get)
-    return best_sep if candidates[best_sep] > 0 else ','
+    return best_sep if candidates[best_sep] > 0 else ","
 
 
 # =============================================================================
 # Étape 1: Configuration
 # =============================================================================
+
 
 def render_config_step():
     """Étape de configuration du projet."""
@@ -348,7 +359,7 @@ def render_config_step():
 
             # Détection automatique
             target_values = df[target_col].nunique()
-            auto_regression = target_values > 20 and df[target_col].dtype in ['int64', 'float64']
+            auto_regression = target_values > 20 and df[target_col].dtype in ["int64", "float64"]
 
             is_regression = st.radio(
                 "Type de tâche",
@@ -362,7 +373,9 @@ def render_config_step():
             if not is_regression:
                 st.info(f"📊 {target_values} classes détectées dans `{target_col}`")
             else:
-                st.info(f"📈 Variable continue: {df[target_col].min():.2f} - {df[target_col].max():.2f}")
+                st.info(
+                    f"📈 Variable continue: {df[target_col].min():.2f} - {df[target_col].max():.2f}"
+                )
 
             st.markdown("### Feature Engineering")
             max_samples = st.slider(
@@ -390,6 +403,7 @@ def render_config_step():
 # =============================================================================
 # Étape 2: Analyse statistique
 # =============================================================================
+
 
 def render_analyse_step():
     """Étape d'analyse statistique automatique."""
@@ -464,8 +478,9 @@ def run_statistical_analysis():
         # Calcul des corrélations features/target
         progress.progress(85, text="Calcul des corrélations...")
         try:
-            from src.analyse.correlation.correlation import FeatureCorrelationAnalyzer
             import traceback as tb
+
+            from src.analyse.correlation.correlation import FeatureCorrelationAnalyzer
 
             # Déterminer le type de tâche
             task = "regression" if st.session_state.is_regression else "classification"
@@ -481,6 +496,7 @@ def run_statistical_analysis():
         except Exception as corr_error:
             # Ne pas bloquer si les corrélations échouent
             import traceback as tb
+
             error_details = tb.format_exc()
             print(f"[CORRELATIONS] ⚠️ Erreur: {corr_error}")
             print(f"[CORRELATIONS] Traceback:\n{error_details}")
@@ -499,6 +515,7 @@ def run_statistical_analysis():
         progress.empty()
         st.error(f"❌ Erreur lors de l'analyse: {e}")
         import traceback
+
         st.code(traceback.format_exc())
 
 
@@ -524,10 +541,7 @@ def render_analysis_results():
 
         with col2:
             # Compter les features avec valeurs manquantes
-            missing = sum(
-                1 for feat in features_list
-                if feat.get("missing_ratio", 0) > 0
-            )
+            missing = sum(1 for feat in features_list if feat.get("missing_ratio", 0) > 0)
             st.metric("Avec manquants", missing)
 
         with col3:
@@ -561,13 +575,15 @@ def render_analysis_results():
         if features_list:
             columns_data = []
             for feat in features_list:
-                columns_data.append({
-                    "Feature": feat.get("name", "?"),
-                    "Type": feat.get("inferred_type", feat.get("dtype", "?")),
-                    "Uniques": feat.get("n_unique", 0),
-                    "Manquants %": f"{feat.get('missing_ratio', 0)*100:.1f}%",
-                    "Flags": ", ".join(feat.get("flags", [])) or "-",
-                })
+                columns_data.append(
+                    {
+                        "Feature": feat.get("name", "?"),
+                        "Type": feat.get("inferred_type", feat.get("dtype", "?")),
+                        "Uniques": feat.get("n_unique", 0),
+                        "Manquants %": f"{feat.get('missing_ratio', 0)*100:.1f}%",
+                        "Flags": ", ".join(feat.get("flags", [])) or "-",
+                    }
+                )
 
             st.dataframe(pd.DataFrame(columns_data), use_container_width=True)
         else:
@@ -589,7 +605,9 @@ def render_analysis_results():
 
             # Créer le graphique en barres
             chart_data = top_features[["feature", "combined_score"]].set_index("feature")
-            chart_data = chart_data.sort_values("combined_score", ascending=True)  # Pour affichage horizontal
+            chart_data = chart_data.sort_values(
+                "combined_score", ascending=True
+            )  # Pour affichage horizontal
 
             st.markdown(f"#### Top {top_n} features par score combiné")
             st.bar_chart(chart_data, horizontal=True, use_container_width=True)
@@ -624,7 +642,9 @@ def render_analysis_results():
 
                 # Afficher avec formatage
                 st.dataframe(
-                    display_df.style.format(format_dict).background_gradient(subset=["Score Combiné"], cmap="YlGn"),
+                    display_df.style.format(format_dict).background_gradient(
+                        subset=["Score Combiné"], cmap="YlGn"
+                    ),
                     use_container_width=True,
                     hide_index=True,
                 )
@@ -658,6 +678,7 @@ def render_analysis_results():
 # =============================================================================
 # Étape 3: Agent métier (Chat)
 # =============================================================================
+
 
 def parse_llm_response(response: str) -> dict:
     """
@@ -772,14 +793,17 @@ def start_agent_conversation():
             st.session_state.chatbot = chatbot
 
             # Ajouter à l'historique
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": response,
-            })
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "content": response,
+                }
+            )
 
         except Exception as e:
             st.error(f"❌ Erreur au démarrage de l'agent: {e}")
             import traceback
+
             st.code(traceback.format_exc())
             return
 
@@ -790,10 +814,12 @@ def start_agent_conversation():
 def process_user_input(user_input: str):
     """Traite l'input utilisateur dans le chat."""
     # Ajouter le message utilisateur
-    st.session_state.chat_history.append({
-        "role": "user",
-        "content": user_input,
-    })
+    st.session_state.chat_history.append(
+        {
+            "role": "user",
+            "content": user_input,
+        }
+    )
 
     # Commandes spéciales
     if user_input.lower().strip() in ["skip", "passer"]:
@@ -802,23 +828,29 @@ def process_user_input(user_input: str):
             if chatbot:
                 try:
                     response = chatbot.ask_next("L'utilisateur a choisi de passer cette question.")
-                    st.session_state.chat_history.append({
-                        "role": "assistant",
-                        "content": response,
-                    })
+                    st.session_state.chat_history.append(
+                        {
+                            "role": "assistant",
+                            "content": response,
+                        }
+                    )
                 except Exception:
-                    st.session_state.chat_history.append({
-                        "role": "assistant",
-                        "content": "Question passée.",
-                    })
+                    st.session_state.chat_history.append(
+                        {
+                            "role": "assistant",
+                            "content": "Question passée.",
+                        }
+                    )
         st.rerun()
         return
 
     if user_input.lower().strip() in ["done", "terminé", "fini"]:
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "content": "Parfait! Je vais utiliser les informations collectées pour le feature engineering.",
-        })
+        st.session_state.chat_history.append(
+            {
+                "role": "assistant",
+                "content": "Parfait! Je vais utiliser les informations collectées pour le feature engineering.",
+            }
+        )
         st.session_state.current_step = 4
         st.rerun()
         return
@@ -833,10 +865,12 @@ def process_user_input(user_input: str):
         try:
             response = chatbot.ask_next(user_answer=user_input)
 
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": response,
-            })
+            st.session_state.chat_history.append(
+                {
+                    "role": "assistant",
+                    "content": response,
+                }
+            )
 
             # Vérifier si le LLM est en mode Final
             parsed = parse_llm_response(response)
@@ -853,6 +887,7 @@ def process_user_input(user_input: str):
 # =============================================================================
 # Étape 4: Feature Engineering
 # =============================================================================
+
 
 def render_fe_step():
     """Étape de feature engineering automatique."""
@@ -903,19 +938,20 @@ def render_fe_step():
 
 def run_feature_engineering():
     """Lance le feature engineering LLMFE avec affichage progressif en temps réel."""
-    from src.front.fe_runner_async import AsyncFERunner
+
     from src.front.fe_progress_monitor import (
+        get_chart_data,
         get_current_progress,
         get_metrics,
-        get_chart_data,
         get_recent_samples,
         load_final_summary,
-        load_best_model_json,
     )
-    from pathlib import Path
+    from src.front.fe_runner_async import AsyncFERunner
 
     st.markdown("### 🔧 Feature Engineering en cours...")
-    st.info(f"📊 Configuration: {st.session_state.fe_provider} / {st.session_state.fe_model} | Max: {st.session_state.max_fe_samples} itérations")
+    st.info(
+        f"📊 Configuration: {st.session_state.fe_provider} / {st.session_state.fe_model} | Max: {st.session_state.max_fe_samples} itérations"
+    )
 
     # Variables pour le suivi
     max_samples = st.session_state.max_fe_samples
@@ -963,7 +999,7 @@ def run_feature_engineering():
         results_dir = async_runner.get_results_dir()
 
         with status_placeholder.container():
-            st.info(f"🔄 LLMFE en cours... Les résultats apparaîtront ci-dessous.")
+            st.info("🔄 LLMFE en cours... Les résultats apparaîtront ci-dessous.")
 
         # Boucle de polling - mise à jour toutes les 2 secondes
         last_count = 0
@@ -1009,10 +1045,14 @@ def run_feature_engineering():
                     recent = get_recent_samples(df, n=5)
                     if recent:
                         st.markdown("#### 🕐 Derniers samples")
-                        recent_text = " | ".join([
-                            f"{s['status']} #{s['sample_order']}: {s['score']:.4f}" if s['score'] else f"{s['status']} #{s['sample_order']}: échec"
-                            for s in recent
-                        ])
+                        recent_text = " | ".join(
+                            [
+                                f"{s['status']} #{s['sample_order']}: {s['score']:.4f}"
+                                if s["score"]
+                                else f"{s['status']} #{s['sample_order']}: échec"
+                                for s in recent
+                            ]
+                        )
                         st.caption(recent_text)
 
                 last_count = current_count
@@ -1022,6 +1062,7 @@ def run_feature_engineering():
             status_placeholder.empty()
             st.error(f"❌ Erreur LLMFE: {async_runner.get_error()}")
             import traceback
+
             st.code(traceback.format_exc())
             return
 
@@ -1081,13 +1122,14 @@ def run_feature_engineering():
         recent_placeholder.empty()
         st.error(f"❌ Erreur LLMFE: {e}")
         import traceback
+
         st.code(traceback.format_exc())
 
 
 def render_fe_results():
     """Affiche le dashboard complet des résultats LLMFE."""
     results = st.session_state.fe_results
-    results_dir = Path(results.get('results_dir', ''))
+    results_dir = Path(results.get("results_dir", ""))
 
     # Charger les données
     summary = _load_json(results_dir / "summary.json")
@@ -1125,12 +1167,9 @@ def render_fe_results():
             st.metric("⏱️ Temps Total", f"{total_time:.0f}s")
 
     # === Onglets ===
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🏆 Meilleur modèle",
-        "📈 Évolution",
-        "📋 Tous les essais",
-        "📊 Statistiques"
-    ])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["🏆 Meilleur modèle", "📈 Évolution", "📋 Tous les essais", "📊 Statistiques"]
+    )
 
     # --- Onglet 1: Meilleur modèle ---
     with tab1:
@@ -1167,7 +1206,7 @@ def render_fe_results():
 
                 # Calculer le meilleur score cumulatif
                 best_so_far = []
-                current_best = float('-inf')
+                current_best = float("-inf")
                 for score in df["score"]:
                     current_best = max(current_best, score)
                     best_so_far.append(current_best)
@@ -1194,11 +1233,13 @@ def render_fe_results():
             data = []
             for sample in samples:
                 score = sample.get("score")
-                data.append({
-                    "#": sample.get("sample_order", "?"),
-                    "Score": f"{score:.4f}" if score is not None else "—",
-                    "Statut": "✅" if score is not None else "❌",
-                })
+                data.append(
+                    {
+                        "#": sample.get("sample_order", "?"),
+                        "Score": f"{score:.4f}" if score is not None else "—",
+                        "Statut": "✅" if score is not None else "❌",
+                    }
+                )
 
             df = pd.DataFrame(data)
             df = df.sort_values("#", ascending=False)
@@ -1230,10 +1271,12 @@ def render_fe_results():
                 sample_time = summary.get("total_sample_time", 0)
                 eval_time = summary.get("total_evaluate_time", 0)
 
-                time_df = pd.DataFrame({
-                    "Étape": ["Sampling (LLM)", "Évaluation"],
-                    "Temps (s)": [sample_time, eval_time]
-                })
+                time_df = pd.DataFrame(
+                    {
+                        "Étape": ["Sampling (LLM)", "Évaluation"],
+                        "Temps (s)": [sample_time, eval_time],
+                    }
+                )
                 st.bar_chart(time_df.set_index("Étape"))
 
             with col2:
@@ -1241,10 +1284,9 @@ def render_fe_results():
                 valid = summary.get("valid_samples", 0)
                 failed = summary.get("failed_samples", 0)
 
-                status_df = pd.DataFrame({
-                    "Statut": ["Valides", "Échouées"],
-                    "Nombre": [valid, failed]
-                })
+                status_df = pd.DataFrame(
+                    {"Statut": ["Valides", "Échouées"], "Nombre": [valid, failed]}
+                )
                 st.bar_chart(status_df.set_index("Statut"))
 
             # Distribution des scores
@@ -1261,13 +1303,13 @@ def render_fe_results():
                     with col2:
                         st.metric("Min", f"{score_stats.get('min', min(scores)):.4f}")
                     with col3:
-                        mean_score = score_stats.get('mean', sum(scores)/len(scores))
+                        mean_score = score_stats.get("mean", sum(scores) / len(scores))
                         st.metric("Moyenne", f"{mean_score:.4f}")
         else:
             st.info("Statistiques non disponibles.")
 
 
-def _load_json(path: Path) -> Optional[Dict]:
+def _load_json(path: Path) -> dict | None:
     """Charge un fichier JSON."""
     if path.exists():
         try:
@@ -1281,6 +1323,7 @@ def _load_json(path: Path) -> Optional[Dict]:
 # =============================================================================
 # Étape 5: AutoML
 # =============================================================================
+
 
 def render_automl_step():
     """Étape AutoML."""
@@ -1312,12 +1355,12 @@ def render_automl_step():
     if st.session_state.automl_results is None:
         if st.button("🚀 Lancer AutoML", type="primary", use_container_width=True):
             # ===== CHECKPOINT 0: Bouton cliqué =====
-            print("\n" + "#"*60)
+            print("\n" + "#" * 60)
             print("[CHECKPOINT 0] BOUTON 'Lancer AutoML' CLIQUÉ!")
             print(f"  - Framework sélectionné: {framework}")
             print(f"  - Time limit: {time_limit} minutes")
             print(f"  - automl_results actuel: {st.session_state.automl_results}")
-            print("#"*60 + "\n")
+            print("#" * 60 + "\n")
             st.write("🔍 Debug: Bouton cliqué, lancement en cours...")
             run_automl(framework, time_limit * 60)
     else:
@@ -1341,14 +1384,15 @@ def run_automl(framework: str, time_limit: int):
     """Lance AutoML."""
     import traceback
     from pathlib import Path
+
     import pandas as pd
 
     # ===== CHECKPOINT 1: Début =====
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("[CHECKPOINT 1] run_automl() APPELÉ")
     print(f"  - Framework: {framework}")
     print(f"  - Time limit: {time_limit} secondes")
-    print("="*60)
+    print("=" * 60)
 
     st.info(f"🔄 Lancement de {framework} (limite: {time_limit//60} min)...")
 
@@ -1360,7 +1404,9 @@ def run_automl(framework: str, time_limit: int):
 
         # Forcer le rechargement du module (évite les problèmes de cache)
         import importlib
+
         import src.automl.runner as runner_module
+
         importlib.reload(runner_module)
         automl_run = runner_module.run_automl
 
@@ -1368,7 +1414,13 @@ def run_automl(framework: str, time_limit: int):
 
         # ===== CHECKPOINT 2b: Vérifier si dataset FE existe =====
         df_to_use = st.session_state.df_train
-        fe_csv_path = Path("outputs") / st.session_state.project_name / "feature_engineering" / "dataset_fe" / "train_fe.csv"
+        fe_csv_path = (
+            Path("outputs")
+            / st.session_state.project_name
+            / "feature_engineering"
+            / "dataset_fe"
+            / "train_fe.csv"
+        )
 
         if fe_csv_path.exists():
             print(f"\n[CHECKPOINT 2b] ✅ Dataset FE trouvé: {fe_csv_path}")
@@ -1377,7 +1429,7 @@ def run_automl(framework: str, time_limit: int):
             print(f"  - Shape FE: {df_to_use.shape}")
             st.info(f"📊 Utilisation du dataset transformé ({df_to_use.shape[1]} features)")
         else:
-            print(f"\n[CHECKPOINT 2b] ℹ️ Pas de dataset FE - utilisation des données originales")
+            print("\n[CHECKPOINT 2b] ℹ️ Pas de dataset FE - utilisation des données originales")
 
         # ===== CHECKPOINT 3: Vérification données =====
         print("\n[CHECKPOINT 3] Vérification des données...")
@@ -1450,7 +1502,7 @@ def render_automl_results():
         with col1:
             st.metric("Meilleur modèle", results.get("best_model", "N/A"))
         with col2:
-            score = results.get('best_score')
+            score = results.get("best_score")
             st.metric("Score", f"{score:.4f}" if score is not None else "N/A")
         with col3:
             st.metric("Modèles testés", results.get("models_tested", 0))
@@ -1459,6 +1511,7 @@ def render_automl_results():
 # =============================================================================
 # Étape 6: Résultats finaux
 # =============================================================================
+
 
 def render_results_step():
     """Affiche les résultats finaux du pipeline."""
@@ -1518,6 +1571,7 @@ def render_results_step():
 # =============================================================================
 # Main App
 # =============================================================================
+
 
 def main():
     """Point d'entrée principal."""

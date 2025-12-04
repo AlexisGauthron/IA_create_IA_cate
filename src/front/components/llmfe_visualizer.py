@@ -3,12 +3,11 @@ Composant de visualisation pour LLMFE (Feature Engineering).
 Affiche la progression en temps réel et les résultats finaux.
 """
 
-import streamlit as st
-import pandas as pd
-from pathlib import Path
-from typing import Optional, Dict, Any, List
 import json
-import time
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
 
 
 class LLMFEProgressTracker:
@@ -25,7 +24,7 @@ class LLMFEProgressTracker:
 
     def __init__(self, max_samples: int = 20):
         self.max_samples = max_samples
-        self.samples_history: List[Dict] = []
+        self.samples_history: list[dict] = []
         self.best_score = None
         self.best_sample = None
 
@@ -51,7 +50,7 @@ class LLMFEProgressTracker:
     def update(
         self,
         sample_num: int,
-        score: Optional[float],
+        score: float | None,
         is_valid: bool,
         code: str = "",
         sample_time: float = 0,
@@ -85,8 +84,7 @@ class LLMFEProgressTracker:
         if self._progress_placeholder:
             progress = min(current / self.max_samples, 1.0)
             self._progress_placeholder.progress(
-                progress,
-                text=f"Itération {current}/{self.max_samples}"
+                progress, text=f"Itération {current}/{self.max_samples}"
             )
 
     def _update_metrics(self):
@@ -100,8 +98,7 @@ class LLMFEProgressTracker:
 
                 with col1:
                     st.metric(
-                        "🏆 Meilleur score",
-                        f"{self.best_score:.4f}" if self.best_score else "—"
+                        "🏆 Meilleur score", f"{self.best_score:.4f}" if self.best_score else "—"
                     )
 
                 with col2:
@@ -111,7 +108,11 @@ class LLMFEProgressTracker:
                     st.metric("❌ Échouées", failed_count)
 
                 with col4:
-                    success_rate = (valid_count / len(self.samples_history) * 100) if self.samples_history else 0
+                    success_rate = (
+                        (valid_count / len(self.samples_history) * 100)
+                        if self.samples_history
+                        else 0
+                    )
                     st.metric("📊 Taux succès", f"{success_rate:.0f}%")
 
     def _update_chart(self):
@@ -125,7 +126,7 @@ class LLMFEProgressTracker:
 
                 # Calculer le meilleur score cumulatif
                 best_so_far = []
-                current_best = float('-inf')
+                current_best = float("-inf")
                 for score in df["score"]:
                     current_best = max(current_best, score)
                     best_so_far.append(current_best)
@@ -150,7 +151,7 @@ class LLMFEProgressTracker:
 
                     with st.expander(
                         f"{status} Sample #{sample['num']} | Score: {score_str}",
-                        expanded=(sample == recent[0])  # Expand le plus récent
+                        expanded=(sample == recent[0]),  # Expand le plus récent
                     ):
                         st.code(sample["code"], language="python")
                         st.caption(
@@ -189,7 +190,7 @@ class LLMFEResultsDashboard:
                 except Exception:
                     pass
 
-    def _load_json(self, filename: str) -> Optional[Dict]:
+    def _load_json(self, filename: str) -> dict | None:
         """Charge un fichier JSON."""
         path = self.results_dir / filename
         if path.exists():
@@ -208,12 +209,9 @@ class LLMFEResultsDashboard:
         self._render_main_metrics()
 
         # Onglets
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "🏆 Meilleur modèle",
-            "📈 Évolution",
-            "📋 Tous les essais",
-            "📊 Statistiques"
-        ])
+        tab1, tab2, tab3, tab4 = st.tabs(
+            ["🏆 Meilleur modèle", "📈 Évolution", "📋 Tous les essais", "📊 Statistiques"]
+        )
 
         with tab1:
             self._render_best_model()
@@ -250,9 +248,8 @@ class LLMFEResultsDashboard:
             st.metric("✅ Taux Succès", f"{rate:.0f}%")
 
         with col4:
-            total_time = (
-                self.summary.get("total_sample_time", 0) +
-                self.summary.get("total_evaluate_time", 0)
+            total_time = self.summary.get("total_sample_time", 0) + self.summary.get(
+                "total_evaluate_time", 0
             )
             st.metric("⏱️ Temps Total", f"{total_time:.0f}s")
 
@@ -298,7 +295,7 @@ class LLMFEResultsDashboard:
 
         # Calculer le meilleur score cumulatif
         best_so_far = []
-        current_best = float('-inf')
+        current_best = float("-inf")
         for score in df["score"]:
             current_best = max(current_best, score)
             best_so_far.append(current_best)
@@ -327,11 +324,13 @@ class LLMFEResultsDashboard:
         # Créer le DataFrame
         data = []
         for sample in self.samples:
-            data.append({
-                "#": sample.get("sample_order", "?"),
-                "Score": sample.get("score"),
-                "Statut": "✅" if sample.get("score") is not None else "❌",
-            })
+            data.append(
+                {
+                    "#": sample.get("sample_order", "?"),
+                    "Score": sample.get("score"),
+                    "Statut": "✅" if sample.get("score") is not None else "❌",
+                }
+            )
 
         df = pd.DataFrame(data)
         df = df.sort_values("#", ascending=False)
@@ -363,10 +362,9 @@ class LLMFEResultsDashboard:
             sample_time = self.summary.get("total_sample_time", 0)
             eval_time = self.summary.get("total_evaluate_time", 0)
 
-            time_df = pd.DataFrame({
-                "Étape": ["Sampling (LLM)", "Évaluation"],
-                "Temps (s)": [sample_time, eval_time]
-            })
+            time_df = pd.DataFrame(
+                {"Étape": ["Sampling (LLM)", "Évaluation"], "Temps (s)": [sample_time, eval_time]}
+            )
             st.bar_chart(time_df.set_index("Étape"))
 
         with col2:
@@ -374,10 +372,7 @@ class LLMFEResultsDashboard:
             valid = self.summary.get("valid_samples", 0)
             failed = self.summary.get("failed_samples", 0)
 
-            status_df = pd.DataFrame({
-                "Statut": ["Valides", "Échouées"],
-                "Nombre": [valid, failed]
-            })
+            status_df = pd.DataFrame({"Statut": ["Valides", "Échouées"], "Nombre": [valid, failed]})
             st.bar_chart(status_df.set_index("Statut"))
 
         # Distribution des scores
@@ -405,11 +400,11 @@ def render_llmfe_live_progress(
     placeholder,
     sample_num: int,
     max_samples: int,
-    best_score: Optional[float],
+    best_score: float | None,
     valid_count: int,
     failed_count: int,
     last_code: str = "",
-    last_score: Optional[float] = None,
+    last_score: float | None = None,
 ):
     """
     Fonction helper pour afficher la progression LLMFE.
@@ -433,10 +428,7 @@ def render_llmfe_live_progress(
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric(
-                "🏆 Meilleur",
-                f"{best_score:.4f}" if best_score is not None else "—"
-            )
+            st.metric("🏆 Meilleur", f"{best_score:.4f}" if best_score is not None else "—")
 
         with col2:
             st.metric("✅ Valides", valid_count)
@@ -455,4 +447,7 @@ def render_llmfe_live_progress(
             score_str = f"{last_score:.4f}" if last_score is not None else "Erreur"
 
             with st.expander(f"{status} Dernier essai | Score: {score_str}", expanded=True):
-                st.code(last_code[:500] + "..." if len(last_code) > 500 else last_code, language="python")
+                st.code(
+                    last_code[:500] + "..." if len(last_code) > 500 else last_code,
+                    language="python",
+                )

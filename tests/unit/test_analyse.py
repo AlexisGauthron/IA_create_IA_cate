@@ -1,8 +1,10 @@
 """
 Tests unitaires pour le module analyse.
 """
-import sys
+
 import os
+import sys
+
 import pytest
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
@@ -15,13 +17,12 @@ from src.core.config import settings
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 
 from src.core.io_utils import csv_to_dataframe_train_test
-
 
 # Mapping des projets vers les noms de dossiers
 PROJETS = {
@@ -70,8 +71,7 @@ class TestAnalyse:
             print("[DEBUG] Vérifiez votre fichier .env ou la variable OPENAI_API_KEY")
 
     @pytest.mark.skipif(
-        not settings.is_configured("openai"),
-        reason="OPENAI_API_KEY non définie - test skipped"
+        not settings.is_configured("openai"), reason="OPENAI_API_KEY non définie - test skipped"
     )
     def test_analyse_titanic_stats_only(self):
         """Test l'analyse statistique du dataset Titanic (sans LLM)."""
@@ -80,13 +80,7 @@ class TestAnalyse:
         df_train, _ = csv_to_dataframe_train_test("data/raw/titanic")
 
         # only_stats=True ne retourne rien, on vérifie juste que ça ne crash pas
-        analyse(
-            df_train,
-            target_cols="Survived",
-            nom="titanic",
-            print_json=False,
-            only_stats=True
-        )
+        analyse(df_train, target_cols="Survived", nom="titanic", print_json=False, only_stats=True)
 
         # Si on arrive ici, le test a réussi
         assert True

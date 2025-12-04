@@ -23,11 +23,11 @@ Structure des dossiers créés:
 Note: Le timestamp n'est plus dans la structure des dossiers,
 il est stocké uniquement dans les métadonnées.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-import json
+from typing import Any
 
 from src.core.base_path_config import BasePathConfig
 
@@ -48,7 +48,7 @@ class FeatureEngineeringPathConfig(BasePathConfig):
     def __init__(
         self,
         project_name: str,
-        base_dir: Optional[str | Path] = None,
+        base_dir: str | Path | None = None,
     ):
         """
         Initialise la configuration des chemins pour Feature Engineering.
@@ -80,7 +80,7 @@ class FeatureEngineeringPathConfig(BasePathConfig):
 
     # === Implémentation des méthodes abstraites ===
 
-    def _get_subdirectories(self) -> List[Path]:
+    def _get_subdirectories(self) -> list[Path]:
         """Retourne les sous-dossiers spécifiques au Feature Engineering."""
         return [
             self.features_dir,
@@ -93,20 +93,22 @@ class FeatureEngineeringPathConfig(BasePathConfig):
             self.dataset_fe_dir,
         ]
 
-    def get_all_paths(self) -> Dict[str, str]:
+    def get_all_paths(self) -> dict[str, str]:
         """Retourne tous les chemins configurés."""
         paths = self.get_base_paths()
-        paths.update({
-            "features_dir": str(self.features_dir),
-            "llmfe_dir": str(self.llmfe_dir),
-            "llmfe_samples_dir": str(self.llmfe_samples_dir),
-            "llmfe_tensorboard_dir": str(self.llmfe_tensorboard_dir),
-            "llmfe_results_dir": str(self.llmfe_results_dir),
-            "transforms_dir": str(self.transforms_dir),
-            "specs_dir": str(self.specs_dir),
-            "train_features_path": str(self.train_features_path),
-            "test_features_path": str(self.test_features_path),
-        })
+        paths.update(
+            {
+                "features_dir": str(self.features_dir),
+                "llmfe_dir": str(self.llmfe_dir),
+                "llmfe_samples_dir": str(self.llmfe_samples_dir),
+                "llmfe_tensorboard_dir": str(self.llmfe_tensorboard_dir),
+                "llmfe_results_dir": str(self.llmfe_results_dir),
+                "transforms_dir": str(self.transforms_dir),
+                "specs_dir": str(self.specs_dir),
+                "train_features_path": str(self.train_features_path),
+                "test_features_path": str(self.test_features_path),
+            }
+        )
         return paths
 
     # === Chemins des fichiers de features ===
@@ -209,15 +211,19 @@ class FeatureEngineeringPathConfig(BasePathConfig):
             Chemin du fichier train sauvegardé
         """
         df_train.to_csv(self.train_fe_csv_path, index=False)
-        self.log(f"Train FE CSV sauvegardé: {len(df_train)} lignes, {len(df_train.columns)} colonnes")
+        self.log(
+            f"Train FE CSV sauvegardé: {len(df_train)} lignes, {len(df_train.columns)} colonnes"
+        )
 
         if df_test is not None:
             df_test.to_csv(self.test_fe_csv_path, index=False)
-            self.log(f"Test FE CSV sauvegardé: {len(df_test)} lignes, {len(df_test.columns)} colonnes")
+            self.log(
+                f"Test FE CSV sauvegardé: {len(df_test)} lignes, {len(df_test.columns)} colonnes"
+            )
 
         return self.train_fe_csv_path
 
-    def save_feature_columns(self, columns: List[str], original_columns: List[str]) -> Path:
+    def save_feature_columns(self, columns: list[str], original_columns: list[str]) -> Path:
         """
         Sauvegarde la liste des colonnes de features.
 
@@ -249,6 +255,7 @@ class FeatureEngineeringPathConfig(BasePathConfig):
             Chemin du fichier sauvegardé
         """
         import joblib
+
         joblib.dump(pipeline, self.feature_pipeline_path)
         self.log(f"Pipeline sauvegardé: {self.feature_pipeline_path}")
         return self.feature_pipeline_path
@@ -261,11 +268,12 @@ class FeatureEngineeringPathConfig(BasePathConfig):
             Pipeline chargé
         """
         import joblib
+
         return joblib.load(self.feature_pipeline_path)
 
     # === Méthodes de sauvegarde LLMFE ===
 
-    def save_llmfe_sample(self, sample_order: int, function_str: str, score: Optional[float]) -> Path:
+    def save_llmfe_sample(self, sample_order: int, function_str: str, score: float | None) -> Path:
         """
         Sauvegarde un sample LLMFE.
 
@@ -278,21 +286,23 @@ class FeatureEngineeringPathConfig(BasePathConfig):
             Chemin du fichier créé
         """
         from datetime import datetime
+
         content = {
             "sample_order": sample_order,
             "function": function_str,
             "score": score,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
         return self.save_json(content, self.get_llmfe_sample_path(sample_order))
 
-    def save_llmfe_best_model(self, model_info: Dict[str, Any]) -> Path:
+    def save_llmfe_best_model(self, model_info: dict[str, Any]) -> Path:
         """Sauvegarde les infos du meilleur modèle LLMFE."""
         from datetime import datetime
+
         model_info["saved_at"] = datetime.now().isoformat()
         return self.save_json(model_info, self.llmfe_best_model_path)
 
-    def save_llmfe_scores(self, scores: List[Dict[str, Any]]) -> Path:
+    def save_llmfe_scores(self, scores: list[dict[str, Any]]) -> Path:
         """Sauvegarde tous les scores LLMFE."""
         return self.save_json(scores, self.llmfe_all_scores_path)
 
@@ -354,9 +364,9 @@ class FeatureEngineeringPathConfig(BasePathConfig):
         n_rows_test: int,
         n_original_features: int,
         n_final_features: int,
-        transforms_applied: List[str],
+        transforms_applied: list[str],
         llmfe_used: bool = False,
-        llmfe_best_score: Optional[float] = None,
+        llmfe_best_score: float | None = None,
     ) -> Path:
         """
         Sauvegarde les métadonnées spécifiques au Feature Engineering.
@@ -387,6 +397,8 @@ class FeatureEngineeringPathConfig(BasePathConfig):
             "llmfe": {
                 "used": llmfe_used,
                 "best_score": llmfe_best_score,
-            } if llmfe_used else None,
+            }
+            if llmfe_used
+            else None,
         }
         return self.save_metadata(metadata)

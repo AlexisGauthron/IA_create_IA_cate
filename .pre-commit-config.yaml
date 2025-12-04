@@ -1,0 +1,73 @@
+# =============================================================================
+# PRE-COMMIT - Vérifications automatiques avant chaque commit
+# =============================================================================
+# Installation:
+#   conda run -n Ia_create_ia pip install pre-commit
+#   conda run -n Ia_create_ia pre-commit install
+#
+# Usage manuel:
+#   conda run -n Ia_create_ia pre-commit run --all-files
+# =============================================================================
+
+repos:
+  # -------------------------------------------------------------------------
+  # Ruff - Linter & Formatter ultra-rapide
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      # Linter - vérifie le code
+      - id: ruff
+        args: [--fix]  # Corrige automatiquement ce qui peut l'être
+
+      # Formatter - formate le code
+      - id: ruff-format
+
+  # -------------------------------------------------------------------------
+  # Hooks standards
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Fichiers
+      - id: end-of-file-fixer        # Ajoute une ligne vide à la fin
+      - id: trailing-whitespace      # Supprime les espaces en fin de ligne
+      - id: check-yaml               # Vérifie la syntaxe YAML
+      - id: check-toml               # Vérifie la syntaxe TOML
+      - id: check-json               # Vérifie la syntaxe JSON
+      - id: check-added-large-files  # Bloque les gros fichiers (>500kb)
+        args: ['--maxkb=500']
+
+      # Sécurité
+      - id: detect-private-key       # Détecte les clés privées
+
+      # Python
+      - id: check-ast                # Vérifie la syntaxe Python
+      - id: debug-statements         # Détecte les print/pdb oubliés
+        exclude: ^src/automl/runner\.py$  # Exclure runner.py (prints volontaires)
+
+  # -------------------------------------------------------------------------
+  # Vérification des secrets (optionnel mais recommandé)
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: \.env\.example$
+
+# =============================================================================
+# Configuration
+# =============================================================================
+default_language_version:
+  python: python3.12
+
+# Exclure certains dossiers
+exclude: |
+  (?x)^(
+    outputs/|
+    data/|
+    \.venv/|
+    venv/|
+    .*\.ipynb
+  )$

@@ -7,14 +7,15 @@ Supporte 3 formats : basic, tags, hierarchical.
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+
 import pandas as pd
 
-from src.feature_engineering.llmfe.feature_insights import FeatureInsights, FeatureInsight
+from src.feature_engineering.llmfe.feature_insights import FeatureInsight, FeatureInsights
 
 
 class FeatureFormat(Enum):
     """Format de présentation des features dans le prompt."""
+
     BASIC = "basic"  # Format actuel : nom, type, range/catégories
     TAGS = "tags"  # Format compact avec tags inline
     HIERARCHICAL = "hierarchical"  # Format structuré par importance
@@ -127,7 +128,7 @@ class FeatureFormatter:
             if feat.correlation is not None:
                 corr = feat.correlation
                 if abs(corr) >= 0.3:
-                    tags.append(f"[HIGH_PRED]")
+                    tags.append("[HIGH_PRED]")
                 tags.append(f"[CORR:{corr:.2f}]")
 
             # Tags de flags
@@ -272,8 +273,8 @@ def format_features_for_prompt(
     df: pd.DataFrame,
     target_col: str,
     format_type: FeatureFormat = FeatureFormat.BASIC,
-    insights: Optional[FeatureInsights] = None,
-    meta_data: Optional[dict] = None,
+    insights: FeatureInsights | None = None,
+    meta_data: dict | None = None,
 ) -> str:
     """
     Fonction utilitaire pour formater les features pour un prompt.

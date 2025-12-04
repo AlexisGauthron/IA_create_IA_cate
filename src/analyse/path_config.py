@@ -19,10 +19,11 @@ Structure des dossiers créés:
 Note: Le timestamp n'est plus dans la structure des dossiers,
 il est stocké uniquement dans les métadonnées.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 from src.core.base_path_config import BasePathConfig
 
@@ -41,7 +42,7 @@ class AnalysePathConfig(BasePathConfig):
     def __init__(
         self,
         project_name: str,
-        base_dir: Optional[str | Path] = None,
+        base_dir: str | Path | None = None,
     ):
         """
         Initialise la configuration des chemins pour l'analyse.
@@ -66,21 +67,23 @@ class AnalysePathConfig(BasePathConfig):
 
     # === Implémentation des méthodes abstraites ===
 
-    def _get_subdirectories(self) -> List[Path]:
+    def _get_subdirectories(self) -> list[Path]:
         """Retourne les sous-dossiers spécifiques à l'analyse."""
         return [self.stats_dir, self.full_dir, self.agent_llm_dir]
 
-    def get_all_paths(self) -> Dict[str, str]:
+    def get_all_paths(self) -> dict[str, str]:
         """Retourne tous les chemins configurés."""
         paths = self.get_base_paths()
-        paths.update({
-            "stats_dir": str(self.stats_dir),
-            "full_dir": str(self.full_dir),
-            "agent_llm_dir": str(self.agent_llm_dir),
-            "stats_report": str(self.stats_report_path),
-            "full_report": str(self.full_report_path),
-            "conversation": str(self.conversation_path),
-        })
+        paths.update(
+            {
+                "stats_dir": str(self.stats_dir),
+                "full_dir": str(self.full_dir),
+                "agent_llm_dir": str(self.agent_llm_dir),
+                "stats_report": str(self.stats_report_path),
+                "full_report": str(self.full_report_path),
+                "conversation": str(self.conversation_path),
+            }
+        )
         return paths
 
     # === Chemins des fichiers spécifiques ===
@@ -102,7 +105,7 @@ class AnalysePathConfig(BasePathConfig):
 
     # === Méthodes de sauvegarde spécifiques ===
 
-    def save_stats_report(self, report: Dict[str, Any]) -> Path:
+    def save_stats_report(self, report: dict[str, Any]) -> Path:
         """
         Sauvegarde le rapport statistiques.
 
@@ -115,7 +118,7 @@ class AnalysePathConfig(BasePathConfig):
         self.log("Sauvegarde du rapport statistiques")
         return self.save_json(report, self.stats_report_path)
 
-    def save_full_report(self, report: Dict[str, Any]) -> Path:
+    def save_full_report(self, report: dict[str, Any]) -> Path:
         """
         Sauvegarde le rapport complet avec annotations LLM.
 
@@ -134,8 +137,8 @@ class AnalysePathConfig(BasePathConfig):
         target_col: str,
         n_rows: int,
         n_features: int,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
         only_stats: bool = False,
     ) -> Path:
         """
@@ -162,11 +165,13 @@ class AnalysePathConfig(BasePathConfig):
             "llm_config": {
                 "provider": provider,
                 "model": model,
-            } if not only_stats else None,
+            }
+            if not only_stats
+            else None,
         }
         return self.save_metadata(metadata)
 
-    def save_conversation(self, conversation_data: Dict[str, Any]) -> Path:
+    def save_conversation(self, conversation_data: dict[str, Any]) -> Path:
         """
         Sauvegarde la conversation avec l'agent LLM.
 

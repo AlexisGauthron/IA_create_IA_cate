@@ -14,17 +14,18 @@ Le pipeline lit le JSON généré par l'analyse pour configurer les étapes suiv
 from __future__ import annotations
 
 import json
-import pandas as pd
-from pathlib import Path
+from dataclasses import dataclass
 from datetime import datetime
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, Literal, Tuple
+from pathlib import Path
+from typing import Any, Literal
 
+import pandas as pd
 
 # =============================================================================
 # CONFIGURATION DES SEUILS D'INFÉRENCE
 # =============================================================================
 # Modifie ces valeurs pour ajuster l'auto-détection des paramètres
+
 
 @dataclass
 class InferenceConfig:
@@ -55,10 +56,10 @@ class InferenceConfig:
     format_basic_max_features: int = 5
 
     # Poids pour le score de complexité (utilisé pour choisir "hierarchical")
-    format_complexity_many_features: float = 0.4      # n_features > 50
-    format_complexity_medium_features: float = 0.2    # n_features > 20
-    format_complexity_has_text: float = 0.2           # n_text > 0
-    format_complexity_high_missing: float = 0.2       # missing_rate > 0.3
+    format_complexity_many_features: float = 0.4  # n_features > 50
+    format_complexity_medium_features: float = 0.2  # n_features > 20
+    format_complexity_has_text: float = 0.2  # n_text > 0
+    format_complexity_high_missing: float = 0.2  # missing_rate > 0.3
 
     # Seuil de complexité pour passer à "hierarchical"
     format_hierarchical_threshold: float = 0.5
@@ -67,25 +68,25 @@ class InferenceConfig:
     # MAX SAMPLES - Nombre d'itérations LLMFE
     # -------------------------------------------------------------------------
     # Seuils de n_features
-    max_samples_few_features_threshold: int = 10   # Si n_features <= 10
+    max_samples_few_features_threshold: int = 10  # Si n_features <= 10
     max_samples_many_features_threshold: int = 30  # Si n_features > 30
 
     # Valeurs de max_samples correspondantes
-    max_samples_small: int = 10   # Pour peu de features
+    max_samples_small: int = 10  # Pour peu de features
     max_samples_medium: int = 15  # Pour nombre moyen de features
-    max_samples_large: int = 25   # Pour beaucoup de features
+    max_samples_large: int = 25  # Pour beaucoup de features
 
     # -------------------------------------------------------------------------
     # TIME BUDGET - Temps AutoML (secondes)
     # -------------------------------------------------------------------------
     # Seuils de n_rows
-    time_budget_small_rows_threshold: int = 1000    # Si n_rows < 1000
-    time_budget_large_rows_threshold: int = 50000   # Si n_rows > 50000
+    time_budget_small_rows_threshold: int = 1000  # Si n_rows < 1000
+    time_budget_large_rows_threshold: int = 50000  # Si n_rows > 50000
 
     # Valeurs de time_budget correspondantes
-    time_budget_small: int = 60    # Pour petits datasets
+    time_budget_small: int = 60  # Pour petits datasets
     time_budget_medium: int = 120  # Pour datasets moyens
-    time_budget_large: int = 300   # Pour grands datasets
+    time_budget_large: int = 300  # Pour grands datasets
 
 
 # Config par défaut (utilisée si aucune config fournie)
@@ -95,12 +96,10 @@ DEFAULT_INFERENCE_CONFIG = InferenceConfig()
 class DetectedParams:
     """Paramètres détectés automatiquement depuis l'analyse."""
 
-
-
     def __init__(
         self,
-        analyse_json: Dict[str, Any],
-        inference_config: Optional[InferenceConfig] = None,
+        analyse_json: dict[str, Any],
+        inference_config: InferenceConfig | None = None,
     ):
         """
         Extrait les paramètres depuis le JSON d'analyse.
@@ -142,17 +141,13 @@ class DetectedParams:
         self.max_samples = self._infer_max_samples()
         self.time_budget = self._infer_time_budget()
 
-
-
     def _infer_task_type(self) -> Literal["classification", "regression"]:
         """Déduit le task_type depuis problem_type."""
         if "regression" in self.problem_type:
             return "regression"
         return "classification"
 
-
-
-    def _infer_suggested_metric(self) -> Tuple[str, str]:
+    def _infer_suggested_metric(self) -> tuple[str, str]:
         """
         Déduit la métrique SUGGÉRÉE basée sur les seuils statistiques.
 
@@ -165,14 +160,26 @@ class DetectedParams:
         # Classification
         if self.n_classes == 2:
             if self.is_imbalanced:
-                return "f1", f"Classification binaire déséquilibrée (ratio {self.imbalance_ratio:.2f})"
-            return "accuracy", f"Classification binaire équilibrée (ratio {self.imbalance_ratio:.2f} < seuil)"
+                return (
+                    "f1",
+                    f"Classification binaire déséquilibrée (ratio {self.imbalance_ratio:.2f})",
+                )
+            return (
+                "accuracy",
+                f"Classification binaire équilibrée (ratio {self.imbalance_ratio:.2f} < seuil)",
+            )
         else:
             if self.is_imbalanced:
-                return "f1_macro", f"Classification multiclasse déséquilibrée (ratio {self.imbalance_ratio:.2f})"
-            return "accuracy", f"Classification multiclasse équilibrée (ratio {self.imbalance_ratio:.2f} < seuil)"
+                return (
+                    "f1_macro",
+                    f"Classification multiclasse déséquilibrée (ratio {self.imbalance_ratio:.2f})",
+                )
+            return (
+                "accuracy",
+                f"Classification multiclasse équilibrée (ratio {self.imbalance_ratio:.2f} < seuil)",
+            )
 
-    def _get_final_metric(self) -> Tuple[Optional[str], Optional[str]]:
+    def _get_final_metric(self) -> tuple[str | None, str | None]:
         """
         Récupère la métrique FINALE définie par le LLM (si présente).
 
@@ -216,8 +223,6 @@ class DetectedParams:
         self.metric_reason = reason
         return suggested
 
-
-
     def _infer_feature_format(self) -> Literal["basic", "tags", "hierarchical"]:
         """Déduit le format de prompt optimal pour LLMFE."""
         cfg = self.config
@@ -243,8 +248,6 @@ class DetectedParams:
             return "hierarchical"
         return "tags"
 
-
-
     def _infer_max_samples(self) -> int:
         """Déduit le nombre optimal d'itérations LLMFE."""
         cfg = self.config
@@ -255,8 +258,6 @@ class DetectedParams:
             return cfg.max_samples_large
         return cfg.max_samples_medium
 
-
-
     def _infer_time_budget(self) -> int:
         """Déduit le time budget optimal pour AutoML."""
         cfg = self.config
@@ -266,9 +267,6 @@ class DetectedParams:
         if self.n_rows > cfg.time_budget_large_rows_threshold:
             return cfg.time_budget_large
         return cfg.time_budget_medium
-
-
-
 
     def summary(self) -> str:
         """Résumé des paramètres détectés."""
@@ -290,30 +288,26 @@ class DetectedParams:
                 """
 
 
-
-
 class PipelineResult:
     """Résultat d'exécution du pipeline complet."""
 
     def __init__(self):
-        self.analyse_result: Optional[Dict[str, Any]] = None
-        self.detected_params: Optional[DetectedParams] = None
-        self.feature_engineering_result: Optional[Dict[str, Any]] = None
-        self.automl_result: Optional[Dict[str, Any]] = None
+        self.analyse_result: dict[str, Any] | None = None
+        self.detected_params: DetectedParams | None = None
+        self.feature_engineering_result: dict[str, Any] | None = None
+        self.automl_result: dict[str, Any] | None = None
 
-        self.df_train_fe: Optional[pd.DataFrame] = None
-        self.df_test_fe: Optional[pd.DataFrame] = None
+        self.df_train_fe: pd.DataFrame | None = None
+        self.df_test_fe: pd.DataFrame | None = None
 
-        self.best_model: Optional[Any] = None
-        self.best_score: Optional[float] = None
-        self.best_framework: Optional[str] = None
+        self.best_model: Any | None = None
+        self.best_score: float | None = None
+        self.best_framework: str | None = None
 
-        self.output_dir: Optional[Path] = None
+        self.output_dir: Path | None = None
         self.timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-
-
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Retourne un résumé des résultats."""
         return {
             "timestamp": self.timestamp,
@@ -356,8 +350,6 @@ class FullPipeline:
     ```
     """
 
-
-
     def __init__(
         self,
         project_name: str,
@@ -370,24 +362,24 @@ class FullPipeline:
         # Force la regénération de l'analyse même si le JSON existe
         force_analyse: bool = False,
         # Overrides manuels (si None, utilise l'auto-détection)
-        override_task_type: Optional[str] = None,
-        override_metric: Optional[str] = None,
-        override_feature_format: Optional[str] = None,
-        override_max_samples: Optional[int] = None,
-        override_time_budget: Optional[int] = None,
+        override_task_type: str | None = None,
+        override_metric: str | None = None,
+        override_feature_format: str | None = None,
+        override_max_samples: int | None = None,
+        override_time_budget: int | None = None,
         # Config d'inférence (seuils pour auto-détection)
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
         # Config analyse
         analyse_only_stats: bool = True,
         analyse_provider: str = "openai",
         analyse_model: str = "gpt-4o-mini",
         # Config corrélations
         with_correlations: bool = False,
-        correlation_methods: Optional[list] = None,
+        correlation_methods: list | None = None,
         # Config LLMFE
         llmfe_model: str = "gpt-3.5-turbo",
         # Config AutoML
-        automl_frameworks: Optional[list] = None,
+        automl_frameworks: list | None = None,
     ):
         """
         Initialise le pipeline.
@@ -440,22 +432,17 @@ class FullPipeline:
         # Timestamp pour les métadonnées uniquement (pas dans la structure des dossiers)
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.result = PipelineResult()
-        self.detected_params: Optional[DetectedParams] = None
+        self.detected_params: DetectedParams | None = None
 
         # Créer le dossier de sortie (sans timestamp dans le chemin)
         self.output_dir = Path(output_dir) / project_name
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.result.output_dir = self.output_dir
 
-
-
-
-
-
     def run(
         self,
         df_train: pd.DataFrame,
-        df_test: Optional[pd.DataFrame] = None,
+        df_test: pd.DataFrame | None = None,
     ) -> PipelineResult:
         """
         Exécute le pipeline complet.
@@ -496,11 +483,6 @@ class FullPipeline:
         print(self._footer())
         return self.result
 
-
-
-
-
-
     def _get_or_run_analyse(self, df: pd.DataFrame) -> Path:
         """
         Récupère l'analyse existante ou la génère si nécessaire.
@@ -528,18 +510,18 @@ class FullPipeline:
             print("\n" + "=" * 60)
             print("  ÉTAPE 1: ANALYSE DU DATASET (EXISTANTE)")
             print("=" * 60)
-            print(f"\n  Analyse existante trouvée:")
+            print("\n  Analyse existante trouvée:")
             print(f"    {json_path}")
-            print(f"\n  Utilisation du JSON existant (--force-analyse pour regénérer)")
+            print("\n  Utilisation du JSON existant (--force-analyse pour regénérer)")
 
             # Charger pour afficher quelques infos
-            with open(json_path, "r", encoding="utf-8") as f:
+            with open(json_path, encoding="utf-8") as f:
                 existing_data = json.load(f)
 
             # Afficher un résumé
             context = existing_data.get("context", {})
             features = existing_data.get("features", [])
-            print(f"\n  Résumé de l'analyse existante:")
+            print("\n  Résumé de l'analyse existante:")
             print(f"    - Dataset: {context.get('dataset_name', 'N/A')}")
             print(f"    - Target: {context.get('target_column', 'N/A')}")
             print(f"    - Features: {len(features)}")
@@ -582,8 +564,8 @@ class FullPipeline:
         print("  ÉTAPE 1: ANALYSE DU DATASET (GÉNÉRATION)")
         print("=" * 60)
 
-        from src.analyse.path_config import AnalysePathConfig
         import src.analyse.statistiques.report as report
+        from src.analyse.path_config import AnalysePathConfig
 
         # Créer la config de chemins pour l'analyse
         # Note: base_dir doit être "outputs" (pas "outputs/project"), sinon duplication
@@ -632,9 +614,9 @@ class FullPipeline:
 
     def _run_llm_analysis(
         self,
-        df: Optional[pd.DataFrame],
+        df: pd.DataFrame | None,
         analyse_path_config,
-        existing_report: Dict[str, Any],
+        existing_report: dict[str, Any],
     ) -> None:
         """
         Exécute l'analyse métier LLM et sauvegarde la conversation.
@@ -726,11 +708,17 @@ class FullPipeline:
 
                 # Extraire les valeurs (format: {"value": "...", "confidence": 0.9})
                 if llm_context.get("business_description"):
-                    full_report["context"]["business_description"] = llm_context["business_description"].get("value")
+                    full_report["context"]["business_description"] = llm_context[
+                        "business_description"
+                    ].get("value")
                 if llm_context.get("final_metric"):
-                    full_report["context"]["final_metric"] = llm_context["final_metric"].get("value")
+                    full_report["context"]["final_metric"] = llm_context["final_metric"].get(
+                        "value"
+                    )
                 if llm_context.get("final_metric_reason"):
-                    full_report["context"]["final_metric_reason"] = llm_context["final_metric_reason"].get("value")
+                    full_report["context"]["final_metric_reason"] = llm_context[
+                        "final_metric_reason"
+                    ].get("value")
 
                 # Enrichir features
                 llm_features = {f["name"]: f for f in final_llm_report.get("features", [])}
@@ -738,9 +726,13 @@ class FullPipeline:
                     if feature["name"] in llm_features:
                         llm_feat = llm_features[feature["name"]]
                         if llm_feat.get("feature_description"):
-                            feature["feature_description"] = llm_feat["feature_description"].get("value")
+                            feature["feature_description"] = llm_feat["feature_description"].get(
+                                "value"
+                            )
 
-                print(f"    - business_description: {full_report['context'].get('business_description', 'N/A')[:50]}...")
+                print(
+                    f"    - business_description: {full_report['context'].get('business_description', 'N/A')[:50]}..."
+                )
                 print(f"    - final_metric: {full_report['context'].get('final_metric', 'N/A')}")
                 print(f"    - Features enrichies: {len(llm_features)}")
             else:
@@ -752,20 +744,15 @@ class FullPipeline:
         except Exception as e:
             print(f"\n  [ERREUR] Analyse métier LLM échouée: {e}")
             import traceback
+
             traceback.print_exc()
-
-
-
-
-
-
 
     def _load_detected_params(self, json_path: Path) -> None:
         """Charge les paramètres depuis le JSON d'analyse."""
         print("\n" + "-" * 40)
         print("  Chargement des paramètres détectés...")
 
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             analyse_json = json.load(f)
 
         self.detected_params = DetectedParams(analyse_json, self.inference_config)
@@ -792,23 +779,19 @@ class FullPipeline:
             print(f"  [Override] time_budget: {self.override_time_budget}")
             self.detected_params.time_budget = self.override_time_budget
 
-
-
-
-
     def _run_feature_engineering(
         self,
         df_train: pd.DataFrame,
-        df_test: Optional[pd.DataFrame] = None,
-    ) -> tuple[pd.DataFrame, Optional[pd.DataFrame]]:
+        df_test: pd.DataFrame | None = None,
+    ) -> tuple[pd.DataFrame, pd.DataFrame | None]:
         """Exécute l'étape de Feature Engineering avec les params détectés."""
         print("\n" + "=" * 60)
         print("  ÉTAPE 2: FEATURE ENGINEERING (LLMFE)")
         print("=" * 60)
 
-        from src.feature_engineering.path_config import FeatureEngineeringPathConfig
-        from src.feature_engineering.llmfe.llmfe_runner import LLMFERunner
         from src.feature_engineering.llmfe.feature_formatter import FeatureFormat
+        from src.feature_engineering.llmfe.llmfe_runner import LLMFERunner
+        from src.feature_engineering.path_config import FeatureEngineeringPathConfig
 
         params = self.detected_params
 
@@ -870,25 +853,17 @@ class FullPipeline:
         print("\n  Feature Engineering terminé")
         return df_train, df_test
 
-
-
-
-
-
-
-
-
     def _run_automl(
         self,
         df_train: pd.DataFrame,
-        df_test: Optional[pd.DataFrame] = None,
-    ) -> Dict[str, Any]:
+        df_test: pd.DataFrame | None = None,
+    ) -> dict[str, Any]:
         """Exécute l'étape AutoML avec les params détectés."""
         print("\n" + "=" * 60)
         print("  ÉTAPE 3: AUTOML")
         print("=" * 60)
 
-        from src.automl.runner import all_autoML
+        from src.automl.runner import AutoMLRunner
 
         params = self.detected_params
 
@@ -912,8 +887,8 @@ class FullPipeline:
         models_dir.mkdir(parents=True, exist_ok=True)
 
         # Lancer AutoML
-        automl_runner = all_autoML(
-            Nom_dossier=str(models_dir),
+        automl_runner = AutoMLRunner(
+            output_dir=str(models_dir),
             X_train=X_train,
             X_test=X_test,
             y_train=y_train,
@@ -952,10 +927,6 @@ class FullPipeline:
         print("\n  AutoML terminé")
         return self.result.automl_result
 
-
-
-
-
     def _save_summary(self) -> None:
         """Sauvegarde le résumé du pipeline."""
         summary = {
@@ -977,10 +948,6 @@ class FullPipeline:
             json.dump(summary, f, indent=2, ensure_ascii=False)
 
         print(f"\n  Résumé sauvegardé: {summary_path}")
-
-
-
-
 
     def _header(self) -> str:
         """Génère le header du pipeline."""
@@ -1005,9 +972,6 @@ class FullPipeline:
 {'#' * 70}
 """
 
-
-
-
     def _footer(self) -> str:
         """Génère le footer du pipeline."""
         return f"""
@@ -1025,14 +989,11 @@ class FullPipeline:
 """
 
 
-
-
-
 def run_pipeline(
     project_name: str,
     df_train: pd.DataFrame,
     target_col: str,
-    df_test: Optional[pd.DataFrame] = None,
+    df_test: pd.DataFrame | None = None,
     **kwargs,
 ) -> PipelineResult:
     """

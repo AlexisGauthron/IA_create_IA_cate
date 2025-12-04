@@ -11,13 +11,10 @@ Usage:
     python scripts/migrate_architecture.py --cleanup    # Supprimer les anciens dossiers (après vérification)
 """
 
-import os
-import shutil
 import argparse
-from pathlib import Path
-from typing import List, Tuple, Dict
+import shutil
 from datetime import datetime
-
+from pathlib import Path
 
 # Racine du projet
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -28,40 +25,32 @@ PROJECT_ROOT = Path(__file__).parent.parent
 # Format: (source, destination)
 # ============================================================================
 
-FOLDER_MIGRATIONS: List[Tuple[str, str]] = [
+FOLDER_MIGRATIONS: list[tuple[str, str]] = [
     # Core - Fusion des utilitaires
     ("src/helper", "src/core"),
     ("src/fonctions", "src/core"),
-
     # Data loader
     ("src/Data", "src/data"),
-
     # Analyse - Réorganisation
     ("src/analyse/metier", "src/analyse/business"),
     ("src/analyse/statistiques", "src/analyse/stats"),
     ("src/analyse/dataset", "src/analyse/stats"),  # Fusion dans stats
-
     # Feature Engineering - Renommage et réorganisation
     ("src/features_engineering", "src/feature_engineering"),
-
     # AutoML - Renommage
     ("src/autoML_supervise", "src/automl/supervised"),
     ("src/autoML_nonsupervise", "src/automl/unsupervised"),
-
     # Tests - Renommage
     ("Test", "tests"),
-
     # Données - Réorganisation
     ("Data", "data/raw"),
-
     # Outputs - Renommage
     ("Creation", "outputs"),
-
     # Notebooks - Renommage
     ("Notebook", "notebooks"),
 ]
 
-FILE_MIGRATIONS: List[Tuple[str, str]] = [
+FILE_MIGRATIONS: list[tuple[str, str]] = [
     # Core - LLM Client unifié
     ("src/helper/ollama_llm.py", "src/core/llm_client.py"),
     ("src/helper/ddataframe.py", "src/core/dataframe_utils.py"),
@@ -69,40 +58,65 @@ FILE_MIGRATIONS: List[Tuple[str, str]] = [
     ("src/fonctions/format_entrainement.py", "src/core/preprocessing.py"),
     ("src/fonctions/clean_label.py", "src/core/text_cleaning.py"),
     ("src/fonctions/clean_tokeniser.py", "src/core/text_cleaning.py"),  # À fusionner
-
     # Data loader
     ("src/Data/load_datasets.py", "src/data/loader.py"),
-
     # Analyse
     ("src/analyse/analyse.py", "src/analyse/analyser.py"),
-
     # Feature Engineering - Declarative
-    ("src/features_engineering/LLM/analyse_fe/pipeline.py", "src/feature_engineering/declarative/planner.py"),
-    ("src/features_engineering/LLM/transcriptions_fe/pipeline.py", "src/feature_engineering/declarative/transformer.py"),
-    ("src/features_engineering/LLM/code_fe/pipeline.py", "src/feature_engineering/declarative/code_generator.py"),
-
+    (
+        "src/features_engineering/LLM/analyse_fe/pipeline.py",
+        "src/feature_engineering/declarative/planner.py",
+    ),
+    (
+        "src/features_engineering/LLM/transcriptions_fe/pipeline.py",
+        "src/feature_engineering/declarative/transformer.py",
+    ),
+    (
+        "src/features_engineering/LLM/code_fe/pipeline.py",
+        "src/feature_engineering/declarative/code_generator.py",
+    ),
     # Feature Engineering - Transforms
-    ("src/features_engineering/transformation_fe/numeric_transforms.py", "src/feature_engineering/transforms/numeric.py"),
-    ("src/features_engineering/transformation_fe/categorical_transforms.py", "src/feature_engineering/transforms/categorical.py"),
-    ("src/features_engineering/transformation_fe/datetime_transforms.py", "src/feature_engineering/transforms/datetime.py"),
-    ("src/features_engineering/transformation_fe/text_transforms.py", "src/feature_engineering/transforms/text.py"),
-    ("src/features_engineering/transformation_fe/registry.py", "src/feature_engineering/transforms/registry.py"),
-    ("src/features_engineering/transformation_fe/apply_plan.py", "src/feature_engineering/transforms/apply_plan.py"),
-
+    (
+        "src/features_engineering/transformation_fe/numeric_transforms.py",
+        "src/feature_engineering/transforms/numeric.py",
+    ),
+    (
+        "src/features_engineering/transformation_fe/categorical_transforms.py",
+        "src/feature_engineering/transforms/categorical.py",
+    ),
+    (
+        "src/features_engineering/transformation_fe/datetime_transforms.py",
+        "src/feature_engineering/transforms/datetime.py",
+    ),
+    (
+        "src/features_engineering/transformation_fe/text_transforms.py",
+        "src/feature_engineering/transforms/text.py",
+    ),
+    (
+        "src/features_engineering/transformation_fe/registry.py",
+        "src/feature_engineering/transforms/registry.py",
+    ),
+    (
+        "src/features_engineering/transformation_fe/apply_plan.py",
+        "src/feature_engineering/transforms/apply_plan.py",
+    ),
     # Feature Engineering - Libs
-    ("src/features_engineering/lib_existante/feature_engine.py", "src/feature_engineering/libs/feature_engine_wrapper.py"),
-    ("src/features_engineering/lib_existante/feature_tools.py", "src/feature_engineering/libs/featuretools_wrapper.py"),
-
+    (
+        "src/features_engineering/lib_existante/feature_engine.py",
+        "src/feature_engineering/libs/feature_engine_wrapper.py",
+    ),
+    (
+        "src/features_engineering/lib_existante/feature_tools.py",
+        "src/feature_engineering/libs/featuretools_wrapper.py",
+    ),
     # AutoML
     ("src/autoML_supervise/all_autoML.py", "src/automl/runner.py"),
     ("src/autoML_supervise/flaml.py", "src/automl/supervised/flaml_wrapper.py"),
     ("src/autoML_supervise/autogluon.py", "src/automl/supervised/autogluon_wrapper.py"),
     ("src/autoML_supervise/tpot1.py", "src/automl/supervised/tpot_wrapper.py"),
     ("src/autoML_supervise/h2o/h2o.py", "src/automl/supervised/h2o_wrapper.py"),
-
     # Pipeline
     ("src/pipeline/pipeline_autoMl.py", "src/pipeline/full_pipeline.py"),
-
     # Tests
     ("Test/AutoML/test_all.py", "tests/integration/test_automl.py"),
     ("Test/AutoML/test_flaml.py", "tests/unit/test_flaml.py"),
@@ -115,7 +129,7 @@ FILE_MIGRATIONS: List[Tuple[str, str]] = [
 ]
 
 # Nouveaux dossiers à créer
-NEW_DIRECTORIES: List[str] = [
+NEW_DIRECTORIES: list[str] = [
     "src/core",
     "src/data",
     "src/analyse/stats",
@@ -142,7 +156,7 @@ NEW_DIRECTORIES: List[str] = [
 ]
 
 # Fichiers __init__.py à créer
-INIT_FILES: List[str] = [
+INIT_FILES: list[str] = [
     "src/__init__.py",
     "src/core/__init__.py",
     "src/data/__init__.py",
@@ -170,7 +184,7 @@ class ArchitectureMigrator:
     def __init__(self, project_root: Path, dry_run: bool = False):
         self.project_root = project_root
         self.dry_run = dry_run
-        self.log: List[str] = []
+        self.log: list[str] = []
 
     def _log(self, message: str, level: str = "INFO"):
         """Ajoute un message au log."""
@@ -211,7 +225,9 @@ class ArchitectureMigrator:
             else:
                 if not self.dry_run:
                     full_path.parent.mkdir(parents=True, exist_ok=True)
-                    full_path.write_text(f'# {full_path.parent.name}\n"""Module {full_path.parent.name}."""\n')
+                    full_path.write_text(
+                        f'# {full_path.parent.name}\n"""Module {full_path.parent.name}."""\n'
+                    )
                 self._log(f"Créé: {init_path}", "SUCCESS")
 
     def migrate_files(self):
@@ -266,7 +282,7 @@ class ArchitectureMigrator:
                 else:
                     shutil.copytree(item, dest_item)
 
-        self._log(f"LLMFE/llmfe → src/feature_engineering/llmfe", "SUCCESS")
+        self._log("LLMFE/llmfe → src/feature_engineering/llmfe", "SUCCESS")
 
         # Copier aussi les prompts
         prompts_source = self._resolve_path("LLMFE/prompts")
@@ -276,7 +292,7 @@ class ArchitectureMigrator:
             if not self.dry_run:
                 for item in prompts_source.glob("*.txt"):
                     shutil.copy2(item, prompts_dest / item.name)
-            self._log(f"LLMFE/prompts → config/prompts", "SUCCESS")
+            self._log("LLMFE/prompts → config/prompts", "SUCCESS")
 
     def migrate_data(self):
         """Migre les données."""
@@ -362,7 +378,7 @@ def outputs_dir(project_root):
             conftest_path.write_text(conftest_content)
         self._log("Créé: tests/conftest.py", "SUCCESS")
 
-    def generate_import_mapping(self) -> Dict[str, str]:
+    def generate_import_mapping(self) -> dict[str, str]:
         """Génère le mapping des anciens imports vers les nouveaux."""
         return {
             # Core
@@ -371,14 +387,11 @@ def outputs_dir(project_root):
             "src.fonctions.format_entrainement": "src.core.preprocessing",
             "src.fonctions.clean_label": "src.core.text_cleaning",
             "src.helper.ddataframe": "src.core.dataframe_utils",
-
             # Data
             "src.Data.load_datasets": "src.data.loader",
-
             # Analyse
             "src.analyse.metier": "src.analyse.business",
             "src.analyse.statistiques": "src.analyse.stats",
-
             # Feature Engineering
             "src.features_engineering": "src.feature_engineering",
             "src.features_engineering.LLM.analyse_fe": "src.feature_engineering.declarative",
@@ -386,7 +399,6 @@ def outputs_dir(project_root):
             "src.features_engineering.LLM.code_fe": "src.feature_engineering.declarative",
             "src.features_engineering.transformation_fe": "src.feature_engineering.transforms",
             "src.features_engineering.lib_existante": "src.feature_engineering.libs",
-
             # AutoML
             "src.autoML_supervise": "src.automl.supervised",
             "src.autoML_nonsupervise": "src.automl.unsupervised",
@@ -489,13 +501,21 @@ sed -i '' 's/src.fonctions.csv/src.core.io_utils/g' votre_fichier.py
 
 def main():
     parser = argparse.ArgumentParser(description="Migration de l'architecture du projet")
-    parser.add_argument("--dry-run", action="store_true", help="Simuler sans appliquer les changements")
-    parser.add_argument("--cleanup", action="store_true", help="Supprimer les anciens dossiers (à utiliser après vérification)")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simuler sans appliquer les changements"
+    )
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Supprimer les anciens dossiers (à utiliser après vérification)",
+    )
     args = parser.parse_args()
 
     if args.cleanup:
         print("⚠️  La fonctionnalité --cleanup n'est pas encore implémentée.")
-        print("    Supprimez manuellement les anciens dossiers après avoir vérifié que tout fonctionne.")
+        print(
+            "    Supprimez manuellement les anciens dossiers après avoir vérifié que tout fonctionne."
+        )
         return
 
     migrator = ArchitectureMigrator(PROJECT_ROOT, dry_run=args.dry_run)

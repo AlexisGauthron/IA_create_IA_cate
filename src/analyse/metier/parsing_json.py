@@ -1,14 +1,15 @@
 from __future__ import annotations
+
+import json
 import logging
 import re
-from typing import Any, Dict, Union
 from copy import deepcopy
-import json
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def _try_extract_json(raw_string: str) -> Dict[str, Any] | None:
+def _try_extract_json(raw_string: str) -> dict[str, Any] | None:
     """
     Tente d'extraire un objet JSON d'une string, même si elle contient
     du texte avant/après le JSON (ex: "Voici ma réponse : {...}").
@@ -17,7 +18,7 @@ def _try_extract_json(raw_string: str) -> Dict[str, Any] | None:
         Le dict parsé ou None si échec.
     """
     # Chercher un bloc JSON entre accolades
-    match = re.search(r'\{[\s\S]*\}', raw_string)
+    match = re.search(r"\{[\s\S]*\}", raw_string)
     if match:
         try:
             return json.loads(match.group())
@@ -27,11 +28,11 @@ def _try_extract_json(raw_string: str) -> Dict[str, Any] | None:
 
 
 def apply_llm_business_annotations(
-    snapshot: Dict[str, Any],
-    llm_result_raw: Union[str, Dict[str, Any]],
+    snapshot: dict[str, Any],
+    llm_result_raw: str | dict[str, Any],
     *,
     min_confidence: float = 0.6,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     snapshot : ton JSON compact (dict) du dataset
     llm_result_raw : soit un dict déjà parsé, soit une string JSON comme :

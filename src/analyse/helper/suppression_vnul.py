@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Any, Dict, List
+
+from typing import Any
 
 # clés pour lesquelles on accepte de garder la valeur None
 _ALLOWED_NULL_KEYS = {
@@ -24,7 +25,7 @@ def remove_nulls(obj: Any) -> Any:
     """
     # --- dict ---
     if isinstance(obj, dict):
-        new_dict: Dict[Any, Any] = {}
+        new_dict: dict[Any, Any] = {}
         for k, v in obj.items():
             # Cas particulier : on autorise certains champs à rester None
             if v is None and k in _ALLOWED_NULL_KEYS:
@@ -48,7 +49,7 @@ def remove_nulls(obj: Any) -> Any:
 
     # --- list / tuple ---
     if isinstance(obj, (list, tuple)):
-        new_list: List[Any] = []
+        new_list: list[Any] = []
         for v in obj:
             cleaned = remove_nulls(v)
 

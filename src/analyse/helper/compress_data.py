@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
-from copy import deepcopy
 import math
+from copy import deepcopy
+from typing import Any
 
 import src.analyse.helper.suppression_vnul as suppression_vnul
 
@@ -22,13 +22,13 @@ def _round_floats(obj: Any, ndigits: int = 4) -> Any:
 
 
 def compact_llm_snapshot_payload(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     *,
     max_example_values: int = 3,
     max_top_values: int = 3,
     float_ndigits: int = 4,
     feature_engineering: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Prend un snapshot LLM (dict) et le compresse pour réduire
     le nombre de tokens sans perdre l'info importante pour le FE.
@@ -93,7 +93,7 @@ def compact_llm_snapshot_payload(
     # -----------------------------
     # 3) features : grosse source de tokens → on compacte
     # -----------------------------
-    new_features: List[Dict[str, Any]] = []
+    new_features: list[dict[str, Any]] = []
     for feat in data.get("features", []):
         f = dict(feat)  # shallow copy
 
@@ -102,7 +102,7 @@ def compact_llm_snapshot_payload(
         # 3.0 Retirer quelques champs génériques
         f.pop("pandas_dtype", None)
         f.pop("n_rows", None)
-        f.pop("role", None)          # redondant avec inferred_type
+        f.pop("role", None)  # redondant avec inferred_type
         f.pop("unique_ratio", None)  # n_unique + n_rows suffisent
 
         # notes = redondant avec flags + fe_hints → on les enlève
@@ -148,9 +148,7 @@ def compact_llm_snapshot_payload(
         if isinstance(num_stats, dict):
             # on garde les clés les plus utiles pour le FE
             keep_num = ["mean", "std", "min", "max", "skewness"]
-            f["numeric_stats"] = {
-                k: num_stats[k] for k in keep_num if k in num_stats
-            }
+            f["numeric_stats"] = {k: num_stats[k] for k in keep_num if k in num_stats}
         else:
             # si pas de stats, on supprime carrément la clé
             f.pop("numeric_stats", None)
@@ -158,7 +156,7 @@ def compact_llm_snapshot_payload(
         # 3.3 Compactage de categorical_stats
         cat_stats = f.get("categorical_stats")
         if isinstance(cat_stats, dict):
-            new_cat: Dict[str, Any] = {}
+            new_cat: dict[str, Any] = {}
 
             n_rare = cat_stats.get("n_rare_levels")
             if n_rare not in (None, 0):

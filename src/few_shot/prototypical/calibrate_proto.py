@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -8,12 +8,13 @@ if src_path not in sys.path:
 
 
 import multiprocessing
-if multiprocessing.get_start_method(allow_none=True) != 'spawn':
-    multiprocessing.set_start_method('spawn', force=True)
+
+if multiprocessing.get_start_method(allow_none=True) != "spawn":
+    multiprocessing.set_start_method("spawn", force=True)
 
 
-# Importation pour mac 
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+# Importation pour mac
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
@@ -22,34 +23,34 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 
-from typing import Dict, List, Tuple, Optional
 import numpy as np
-
 
 import src.few_shot.prototypical.embed_texte as embed_texte
 
+# =============================================================================
+# Classe PrototypeCalibrator
+# =============================================================================
+# Renommée de 'Calibrate_proto' vers 'PrototypeCalibrator'
+# Raison: 'Calibrate_proto' utilisait un underscore dans le nom de classe
+#         Les classes doivent être en PascalCase sans underscore
+# =============================================================================
 
 
-
-class Calibrate_proto:
-
+class PrototypeCalibrator:
+    """Calibrateur pour les prototypes few-shot."""
 
     def __init__(
         self,
-        shots: Dict[str, List[str]],
+        shots: dict[str, list[str]],
         *,
-
-        label_defs: Optional[Dict[str, str]] = None,
-
-        alpha: Optional[float] = None,     # None => alpha adaptatif par classe
+        label_defs: dict[str, str] | None = None,
+        alpha: float | None = None,  # None => alpha adaptatif par classe
         alpha_base: float = 0.30,
         alpha_max_extra: float = 0.40,
         alpha_lam: int = 6,
-
         model_name: str,
-        embedder: embed_texte.Embed_textes,
-        ):
-
+        embedder: embed_texte.TextEmbedder,
+    ):
         self.shots = shots
         self.label_defs = label_defs
         self.alpha = alpha
@@ -59,17 +60,15 @@ class Calibrate_proto:
         self.model_name = model_name
         self.embedder = embedder
 
-
     # --- alpha(n) commun partout ---
     def _alpha_for_count(self, n: int) -> float:
         if self.alpha is not None:
             return float(np.clip(self.alpha, 0.0, 0.99))
-        
+
         extra = self.alpha_max_extra * (self.alpha_lam / (n + self.alpha_lam))
         return float(np.clip(self.alpha_base + extra, 0.0, 0.85))
 
-
-    def build_prototypes(self) -> Dict[str, np.ndarray]:
+    def build_prototypes(self) -> dict[str, np.ndarray]:
         """Prototype = moyenne des embeddings d'exemples (+ mélange avec définition pondérée par alpha par classe)."""
         protos = {}
         for lbl, examples in self.shots.items():
@@ -78,21 +77,22 @@ class Calibrate_proto:
             ex_vecs = self.embedder.embed_texts(examples, is_query=False)
             proto = ex_vecs.mean(axis=0)
             if self.label_defs and self.label_defs.get(lbl):
-                a = self._alpha_for_count(len(examples))    # <-- plus jamais 1 - None
-                d_vec = self.embedder._embed_one_cached(self.model_name,self.label_defs[lbl], is_query=False)
+                a = self._alpha_for_count(len(examples))  # <-- plus jamais 1 - None
+                d_vec = self.embedder._embed_one_cached(
+                    self.model_name, self.label_defs[lbl], is_query=False
+                )
                 proto = (1.0 - a) * proto + a * d_vec
             proto = proto / (np.linalg.norm(proto) + 1e-8)
             protos[lbl] = proto.astype(np.float32)
         return protos
 
-
     def calibrate_threshold(
-            self,
-            perc: int,
-            class_balanced: bool,
-            thr_bounds: Tuple[float, float],
-            mar_bounds: Tuple[float, float],
-        ) -> Tuple[float, float]:
+        self,
+        perc: int,
+        class_balanced: bool,
+        thr_bounds: tuple[float, float],
+        mar_bounds: tuple[float, float],
+    ) -> tuple[float, float]:
         """
         Même logique que ta version actuelle, mais :
         - embeddings des shots calculés une seule fois
@@ -102,9 +102,9 @@ class Calibrate_proto:
         # ------------------------------------------------------------
         # 1) Pré-calcul des embeddings de tous les shots
         # ------------------------------------------------------------
-        shot_vecs: Dict[str, np.ndarray] = {}
-        shot_sums: Dict[str, np.ndarray] = {}
-        shot_counts: Dict[str, int] = {}
+        shot_vecs: dict[str, np.ndarray] = {}
+        shot_sums: dict[str, np.ndarray] = {}
+        shot_counts: dict[str, int] = {}
 
         # On encode chaque shot UNE fois
         for lbl, examples in self.shots.items():
@@ -117,7 +117,7 @@ class Calibrate_proto:
             shot_counts[lbl] = ex_vecs.shape[0]
 
         # Embeddings des définitions textuelles (si présentes)
-        label_def_vecs: Dict[str, np.ndarray] = {}
+        label_def_vecs: dict[str, np.ndarray] = {}
         if self.label_defs:
             for lbl, text in self.label_defs.items():
                 if text:
@@ -127,8 +127,8 @@ class Calibrate_proto:
                     )
 
         # Stats collectées
-        per_label_pos_sims: Dict[str, List[float]] = {k: [] for k in self.shots}
-        per_label_margins: Dict[str, List[float]] = {k: [] for k in self.shots}
+        per_label_pos_sims: dict[str, list[float]] = {k: [] for k in self.shots}
+        per_label_margins: dict[str, list[float]] = {k: [] for k in self.shots}
 
         # ------------------------------------------------------------
         # 2) Boucle Leave-One-Out :
@@ -143,12 +143,12 @@ class Calibrate_proto:
             if lbl not in shot_vecs:
                 continue
 
-            vecs_lbl = shot_vecs[lbl]          # [n_lbl, d]
-            sum_lbl = shot_sums[lbl]           # [d]
+            vecs_lbl = shot_vecs[lbl]  # [n_lbl, d]
+            sum_lbl = shot_sums[lbl]  # [d]
 
             for i, ex in enumerate(examples):
                 # Construire les prototypes de TOUTES les classes
-                protos: Dict[str, np.ndarray] = {}
+                protos: dict[str, np.ndarray] = {}
 
                 for lbl2, ex_vecs2 in shot_vecs.items():
                     cnt2 = shot_counts[lbl2]
@@ -188,7 +188,7 @@ class Calibrate_proto:
 
                 labels = list(protos.keys())
                 mats = np.stack([protos[l] for l in labels])  # [n_classes, d]
-                sims = mats @ vq                              # cosinus
+                sims = mats @ vq  # cosinus
 
                 order = np.argsort(-sims)
                 if labels[order[0]] == lbl:
@@ -197,12 +197,14 @@ class Calibrate_proto:
                     per_label_pos_sims[lbl].append(top_sim)
                     per_label_margins[lbl].append(top_sim - second_sim)
 
-            print(f"[Calib_proto-fast] Classe '{lbl}': {len(per_label_pos_sims[lbl])} positifs sur {len(examples)}")
+            print(
+                f"[Calib_proto-fast] Classe '{lbl}': {len(per_label_pos_sims[lbl])} positifs sur {len(examples)}"
+            )
 
         # ------------------------------------------------------------
         # 3) Percentiles + agrégation comme avant
         # ------------------------------------------------------------
-        def _safe_percentile(xs: List[float], p: int, default: float) -> float:
+        def _safe_percentile(xs: list[float], p: int, default: float) -> float:
             return float(np.percentile(xs, p)) if xs else default
 
         if class_balanced:

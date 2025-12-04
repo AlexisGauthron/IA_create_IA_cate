@@ -11,12 +11,13 @@ Usage:
     # Ou utiliser get_api_key() avec fallback
     api_key = settings.get_api_key("openai")
 """
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 # Charger les variables d'environnement depuis .env
 try:
@@ -33,7 +34,9 @@ try:
         # Essayer aussi le répertoire courant
         load_dotenv()
 except ImportError:
-    print("[CONFIG] python-dotenv non installé. Utilisation des variables d'environnement système uniquement.")
+    print(
+        "[CONFIG] python-dotenv non installé. Utilisation des variables d'environnement système uniquement."
+    )
 
 
 @dataclass
@@ -41,22 +44,30 @@ class Settings:
     """Configuration centralisée de l'application."""
 
     # === Clés API ===
-    openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
-    huggingface_api_key: Optional[str] = field(default_factory=lambda: os.getenv("HUGGINGFACE_API_KEY"))
+    openai_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
+    huggingface_api_key: str | None = field(
+        default_factory=lambda: os.getenv("HUGGINGFACE_API_KEY")
+    )
 
     # === URLs ===
-    ollama_base_url: str = field(default_factory=lambda: os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/api/chat"))
+    ollama_base_url: str = field(
+        default_factory=lambda: os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/api/chat")
+    )
 
     # === Defaults LLM ===
-    default_provider: str = field(default_factory=lambda: os.getenv("DEFAULT_LLM_PROVIDER", "openai"))
-    default_model: str = field(default_factory=lambda: os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini"))
+    default_provider: str = field(
+        default_factory=lambda: os.getenv("DEFAULT_LLM_PROVIDER", "openai")
+    )
+    default_model: str = field(
+        default_factory=lambda: os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini")
+    )
 
     # === Chemins ===
     data_dir: Path = field(default_factory=lambda: Path(os.getenv("DATA_DIR", "data")))
     output_dir: Path = field(default_factory=lambda: Path(os.getenv("OUTPUT_DIR", "outputs")))
     models_dir: Path = field(default_factory=lambda: Path(os.getenv("MODELS_DIR", "Modeles")))
 
-    def get_api_key(self, provider: str) -> Optional[str]:
+    def get_api_key(self, provider: str) -> str | None:
         """
         Récupère la clé API pour un provider donné.
 
@@ -99,7 +110,7 @@ class Settings:
         """Vérifie si un provider est configuré."""
         return self.get_api_key(provider) is not None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Retourne la configuration sous forme de dictionnaire (sans les clés sensibles)."""
         return {
             "openai_configured": self.openai_api_key is not None,
@@ -122,6 +133,7 @@ settings = Settings()
 
 # === Fonctions utilitaires ===
 
+
 def get_openai_key() -> str:
     """Raccourci pour obtenir la clé OpenAI."""
     return settings.require_api_key("openai")
@@ -140,10 +152,10 @@ def is_openai_configured() -> bool:
 def is_ollama_available() -> bool:
     """Vérifie si Ollama est accessible."""
     import requests
+
     try:
         response = requests.get(
-            settings.ollama_base_url.replace("/api/chat", "/api/tags"),
-            timeout=2
+            settings.ollama_base_url.replace("/api/chat", "/api/tags"), timeout=2
         )
         return response.status_code == 200
     except Exception:

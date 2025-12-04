@@ -1,5 +1,3 @@
-from src.feature_engineering.transforms.registry import TRANSFORM_REGISTRY
-
 def apply_llm_feature_plan(df, feature_plan, colonne_vise):
     """
     Applique un plan de feature engineering généré par LLM.
@@ -15,4 +13,3 @@ def apply_llm_feature_plan(df, feature_plan, colonne_vise):
         logs.append(log)
 
     return df, logs
-

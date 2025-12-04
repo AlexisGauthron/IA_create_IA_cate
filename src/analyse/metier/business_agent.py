@@ -17,24 +17,25 @@ Usage:
         model="gpt-4o-mini"
     )
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import re
 from copy import deepcopy
-from typing import Any, Dict
+from typing import Any
 
-from src.core.llm_client import (
-    OllamaClient,
-    LLMError,
-    LLMTimeoutError,
-    LLMConnectionError,
-    LLMRateLimitError,
-)
 from src.analyse.helper.compress_data import compact_llm_snapshot_payload
 from src.analyse.metier.chatbot_llm import BusinessClarificationBot
 from src.analyse.metier.parsing_json import apply_llm_business_annotations
+from src.core.llm_client import (
+    LLMConnectionError,
+    LLMError,
+    LLMRateLimitError,
+    LLMTimeoutError,
+    OllamaClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 SKIP_COMMANDS = {"skip", "passe", "suivant", "next"}
-DONE_COMMANDS = {"done", "fin", "stop", "terminer", "fini", "terminé","Arrête"}
+DONE_COMMANDS = {"done", "fin", "stop", "terminer", "fini", "terminé", "Arrête"}
 
 SKIP_RESPONSE = "Je ne sais pas, passe à la suite."
 
@@ -60,14 +61,15 @@ DONE_RESPONSE = (
 # Agent principal
 # =============================================================================
 
+
 def run_business_clarification(
-    stats_payload: Dict[str, Any],
+    stats_payload: dict[str, Any],
     provider: str = "openai",
     model: str = "gpt-4o-mini",
     interactive: bool = True,
     verbose: bool = True,
     max_questions: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Lance une session de clarification métier avec le LLM.
 
@@ -113,7 +115,7 @@ def run_business_clarification(
         feature_engineering=False,  # On ne fait pas de FE ici, juste du métier
     )
 
-    logger.info(f"Payload compacté pour LLM")
+    logger.info("Payload compacté pour LLM")
 
     # -------------------------------------------------------------------------
     # 2. Initialiser le client LLM et le bot de conversation
@@ -206,7 +208,9 @@ def run_business_clarification(
             user_input = _get_user_input()
         else:
             # Mode non-interactif : on laisse le LLM faire ses hypothèses
-            user_input = "Je n'ai pas d'information supplémentaire, fais de ton mieux avec tes hypothèses."
+            user_input = (
+                "Je n'ai pas d'information supplémentaire, fais de ton mieux avec tes hypothèses."
+            )
 
         # Traiter les commandes spéciales
         user_response = _process_user_input(user_input, verbose)
@@ -234,7 +238,9 @@ def run_business_clarification(
                     print("-" * 60)
             except LLMError:
                 if verbose:
-                    print("[ERREUR] Impossible de récupérer un rapport. Retour du payload original.")
+                    print(
+                        "[ERREUR] Impossible de récupérer un rapport. Retour du payload original."
+                    )
                 return deepcopy(stats_payload)
 
     # -------------------------------------------------------------------------
@@ -258,6 +264,7 @@ def run_business_clarification(
 # =============================================================================
 # Fonctions utilitaires
 # =============================================================================
+
 
 def _print_help() -> None:
     """Affiche l'aide des commandes disponibles."""
@@ -336,7 +343,7 @@ def _is_final_mode(llm_response: str) -> bool:
     return False
 
 
-def _print_summary(payload: Dict[str, Any]) -> None:
+def _print_summary(payload: dict[str, Any]) -> None:
     """Affiche un résumé du payload enrichi."""
     print("\n" + "=" * 60)
     print("  RÉSUMÉ DE L'ENRICHISSEMENT")
@@ -347,7 +354,7 @@ def _print_summary(payload: Dict[str, Any]) -> None:
     # Business description
     bd = context.get("business_description")
     if bd:
-        print(f"\n📋 Description métier:")
+        print("\n📋 Description métier:")
         print(f"   {bd[:100]}..." if len(str(bd)) > 100 else f"   {bd}")
 
     # Métrique finale
@@ -356,7 +363,9 @@ def _print_summary(payload: Dict[str, Any]) -> None:
     if metric:
         print(f"\n📊 Métrique finale: {metric}")
         if reason:
-            print(f"   Raison: {reason[:80]}..." if len(str(reason)) > 80 else f"   Raison: {reason}")
+            print(
+                f"   Raison: {reason[:80]}..." if len(str(reason)) > 80 else f"   Raison: {reason}"
+            )
 
     # Features enrichies
     features = payload.get("features", [])

@@ -5,8 +5,8 @@ pour que Streamlit puisse afficher la progression en temps réel.
 """
 
 import threading
-from typing import Optional, Dict, Any
 from pathlib import Path
+from typing import Any
 
 from src.feature_engineering.llmfe.llmfe_runner import LLMFERunner
 from src.feature_engineering.path_config import FeatureEngineeringPathConfig
@@ -28,11 +28,11 @@ class AsyncFERunner:
             project_name: Nom du projet (pour les chemins de sortie)
         """
         self.project_name = project_name
-        self.runner: Optional[LLMFERunner] = None
-        self.path_config: Optional[FeatureEngineeringPathConfig] = None
-        self.thread: Optional[threading.Thread] = None
-        self.result: Optional[Dict[str, Any]] = None
-        self.error: Optional[Exception] = None
+        self.runner: LLMFERunner | None = None
+        self.path_config: FeatureEngineeringPathConfig | None = None
+        self.thread: threading.Thread | None = None
+        self.result: dict[str, Any] | None = None
+        self.error: Exception | None = None
         self._is_started = False
 
     def start(
@@ -43,7 +43,7 @@ class AsyncFERunner:
         max_samples: int = 20,
         api_model: str = "gpt-4o-mini",
         use_api: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """
         Lance LLMFE dans un thread séparé.
@@ -79,14 +79,14 @@ class AsyncFERunner:
             "max_samples": max_samples,
             "api_model": api_model,
             "use_api": use_api,
-            **kwargs
+            **kwargs,
         }
 
         # Lancer le thread
         self.thread = threading.Thread(
             target=self._run_in_thread,
             kwargs=run_kwargs,
-            daemon=True  # Le thread sera tué si le programme principal s'arrête
+            daemon=True,  # Le thread sera tué si le programme principal s'arrête
         )
         self.thread.start()
         self._is_started = True
@@ -98,6 +98,7 @@ class AsyncFERunner:
         except Exception as e:
             self.error = e
             import traceback
+
             print(f"[AsyncFERunner] Erreur: {e}")
             print(traceback.format_exc())
 
@@ -115,27 +116,27 @@ class AsyncFERunner:
         """Retourne True si une erreur s'est produite."""
         return self.error is not None
 
-    def get_samples_dir(self) -> Optional[Path]:
+    def get_samples_dir(self) -> Path | None:
         """Retourne le chemin du dossier samples (disponible dès le start)."""
         if self.path_config is not None:
             return self.path_config.llmfe_samples_dir
         return None
 
-    def get_results_dir(self) -> Optional[Path]:
+    def get_results_dir(self) -> Path | None:
         """Retourne le chemin du dossier results."""
         if self.path_config is not None:
             return self.path_config.llmfe_results_dir
         return None
 
-    def get_result(self) -> Optional[Dict[str, Any]]:
+    def get_result(self) -> dict[str, Any] | None:
         """Retourne le résultat final (None si pas encore terminé)."""
         return self.result
 
-    def get_error(self) -> Optional[Exception]:
+    def get_error(self) -> Exception | None:
         """Retourne l'erreur si une s'est produite."""
         return self.error
 
-    def wait(self, timeout: Optional[float] = None):
+    def wait(self, timeout: float | None = None):
         """Attend la fin du thread."""
         if self.thread is not None:
             self.thread.join(timeout=timeout)

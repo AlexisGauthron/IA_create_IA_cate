@@ -5,7 +5,7 @@ Lit les fichiers JSON générés par LLMFE pour afficher la progression en temps
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+
 import pandas as pd
 
 
@@ -27,14 +27,16 @@ def get_current_progress(samples_dir: Path) -> pd.DataFrame:
     # Lire tous les fichiers sample_*.json
     for f in samples_dir.glob("sample_*.json"):
         try:
-            with open(f, 'r', encoding='utf-8') as fp:
+            with open(f, encoding="utf-8") as fp:
                 data = json.load(fp)
-                records.append({
-                    "sample_order": data.get("sample_order", 0),
-                    "score": data.get("score"),
-                    "function": data.get("function", ""),
-                })
-        except (json.JSONDecodeError, IOError) as e:
+                records.append(
+                    {
+                        "sample_order": data.get("sample_order", 0),
+                        "score": data.get("score"),
+                        "function": data.get("function", ""),
+                    }
+                )
+        except (OSError, json.JSONDecodeError):
             # Fichier peut être en cours d'écriture, on l'ignore
             continue
 
@@ -46,18 +48,18 @@ def get_current_progress(samples_dir: Path) -> pd.DataFrame:
 
     # Calculer le meilleur score cumulé
     best_so_far = []
-    current_best = float('-inf')
+    current_best = float("-inf")
     for score in df["score"]:
         if score is not None and score > current_best:
             current_best = score
-        best_so_far.append(current_best if current_best > float('-inf') else None)
+        best_so_far.append(current_best if current_best > float("-inf") else None)
 
     df["best_cumulative"] = best_so_far
 
     return df
 
 
-def get_metrics(df: pd.DataFrame) -> Dict[str, any]:
+def get_metrics(df: pd.DataFrame) -> dict[str, any]:
     """
     Calcule les métriques à partir du DataFrame de progression.
 
@@ -110,10 +112,7 @@ def get_chart_data(df: pd.DataFrame) -> pd.DataFrame:
     chart_df = df[["sample_order", "score", "best_cumulative"]].copy()
 
     # Renommer pour un affichage plus clair
-    chart_df = chart_df.rename(columns={
-        "score": "Score",
-        "best_cumulative": "Meilleur cumulé"
-    })
+    chart_df = chart_df.rename(columns={"score": "Score", "best_cumulative": "Meilleur cumulé"})
 
     # Utiliser sample_order comme index
     chart_df = chart_df.set_index("sample_order")
@@ -121,7 +120,7 @@ def get_chart_data(df: pd.DataFrame) -> pd.DataFrame:
     return chart_df
 
 
-def get_best_model(df: pd.DataFrame) -> Optional[Dict]:
+def get_best_model(df: pd.DataFrame) -> dict | None:
     """
     Retourne les informations sur le meilleur modèle.
 
@@ -148,7 +147,7 @@ def get_best_model(df: pd.DataFrame) -> Optional[Dict]:
     }
 
 
-def get_recent_samples(df: pd.DataFrame, n: int = 5) -> List[Dict]:
+def get_recent_samples(df: pd.DataFrame, n: int = 5) -> list[dict]:
     """
     Retourne les N derniers samples.
 
@@ -174,7 +173,7 @@ def get_recent_samples(df: pd.DataFrame, n: int = 5) -> List[Dict]:
     ]
 
 
-def load_final_summary(results_dir: Path) -> Optional[Dict]:
+def load_final_summary(results_dir: Path) -> dict | None:
     """
     Charge le résumé final si disponible.
 
@@ -189,13 +188,13 @@ def load_final_summary(results_dir: Path) -> Optional[Dict]:
         return None
 
     try:
-        with open(summary_path, 'r', encoding='utf-8') as f:
+        with open(summary_path, encoding="utf-8") as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None
 
 
-def load_best_model_json(results_dir: Path) -> Optional[Dict]:
+def load_best_model_json(results_dir: Path) -> dict | None:
     """
     Charge le meilleur modèle depuis le JSON final.
 
@@ -210,7 +209,7 @@ def load_best_model_json(results_dir: Path) -> Optional[Dict]:
         return None
 
     try:
-        with open(best_path, 'r', encoding='utf-8') as f:
+        with open(best_path, encoding="utf-8") as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None

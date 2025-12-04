@@ -7,9 +7,10 @@ Usage:
     python tests/integration/test_llmfe.py --project titanic --max-samples 10
     python tests/integration/test_llmfe.py --project titanic --model gpt-4o-mini --dry-run
 """
-import sys
-import os
+
 import argparse
+import os
+import sys
 from pathlib import Path
 
 # Ajoute le dossier racine à sys.path
@@ -24,16 +25,14 @@ sys.path.insert(0, str(llmfe_path))
 # Configuration environnement
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 from src.core.config import settings
 from src.core.io_utils import csv_to_dataframe_train_test
-from src.feature_engineering.path_config import FeatureEngineeringPathConfig
 from src.feature_engineering.llmfe.feature_formatter import FeatureFormat
-from src.feature_engineering.llmfe.feature_insights import FeatureInsights
-
+from src.feature_engineering.path_config import FeatureEngineeringPathConfig
 
 # === Configuration des projets disponibles ===
 PROJETS = {
@@ -122,20 +121,20 @@ def run_llmfe_test(
     print(f"    - Cible: {target_col}")
 
     # === 4. Préparer les métadonnées des features ===
-    print(f"\n[2/5] Préparation des métadonnées...")
+    print("\n[2/5] Préparation des métadonnées...")
 
     # Générer des descriptions pour chaque feature
     meta_data = {}
     for col in feature_cols:
         # Description simple basée sur le nom de la colonne
-        description = col.replace('_', ' ').replace('-', ' ')
+        description = col.replace("_", " ").replace("-", " ")
         meta_data[col] = description
 
     if verbose:
         print(f"    Features avec métadonnées: {len(meta_data)}")
 
     # === 5. Configuration LLMFE ===
-    print(f"\n[3/5] Configuration LLMFE...")
+    print("\n[3/5] Configuration LLMFE...")
     print(f"    - Modèle: {model}")
     print(f"    - Max samples: {max_samples}")
     print(f"    - Samples/prompt: {samples_per_prompt}")
@@ -151,12 +150,12 @@ def run_llmfe_test(
 
     # === 6. Exécution LLMFE ===
     if dry_run:
-        print(f"\n[4/5] Mode dry-run - LLMFE non exécuté")
-        print(f"    La configuration a été validée.")
-        print(f"    Relancez sans --dry-run pour exécuter LLMFE.")
+        print("\n[4/5] Mode dry-run - LLMFE non exécuté")
+        print("    La configuration a été validée.")
+        print("    Relancez sans --dry-run pour exécuter LLMFE.")
         path_config.log("Mode dry-run - LLMFE non exécuté")
     else:
-        print(f"\n[4/5] Exécution de LLMFE...")
+        print("\n[4/5] Exécution de LLMFE...")
         path_config.log("Démarrage de l'exécution LLMFE")
 
         try:
@@ -203,7 +202,7 @@ def run_llmfe_test(
             raise
 
     # === 7. Sauvegarder les métadonnées ===
-    print(f"\n[5/5] Sauvegarde des métadonnées...")
+    print("\n[5/5] Sauvegarde des métadonnées...")
 
     path_config.save_fe_metadata(
         dataset_name=project_name,
@@ -221,7 +220,7 @@ def run_llmfe_test(
     print("\n" + "=" * 70)
     print("  LLMFE TERMINE")
     print("=" * 70)
-    print(f"\nFichiers générés:")
+    print("\nFichiers générés:")
     for name, path in path_config.get_all_paths().items():
         if Path(path).exists():
             print(f"  - {name}: {path}")
@@ -328,53 +327,51 @@ Exemples:
   python tests/integration/test_llmfe.py --project titanic --max-samples 10
   python tests/integration/test_llmfe.py --project titanic --model gpt-4o-mini
   python tests/integration/test_llmfe.py --dry-run  # Valide la config sans exécuter
-        """
+        """,
     )
 
     parser.add_argument(
-        "--project", "-p",
+        "--project",
+        "-p",
         choices=list(PROJETS.keys()),
         default="titanic",
-        help="Projet à traiter (default: titanic)"
+        help="Projet à traiter (default: titanic)",
     )
     parser.add_argument(
-        "--max-samples", "-n",
+        "--max-samples",
+        "-n",
         type=int,
         default=10,
-        help="Nombre maximum d'itérations LLM (default: 10)"
+        help="Nombre maximum d'itérations LLM (default: 10)",
     )
     parser.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default="gpt-4o-mini",
-        help="Modèle OpenAI à utiliser (default: gpt-4o-mini)"
+        help="Modèle OpenAI à utiliser (default: gpt-4o-mini)",
     )
     parser.add_argument(
         "--samples-per-prompt",
         type=int,
         default=2,
-        help="Nombre de samples générés par appel API (default: 2)"
+        help="Nombre de samples générés par appel API (default: 2)",
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Valide la configuration sans exécuter LLMFE"
+        "--dry-run", action="store_true", help="Valide la configuration sans exécuter LLMFE"
     )
+    parser.add_argument("--quiet", "-q", action="store_true", help="Mode silencieux")
     parser.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-        help="Mode silencieux"
-    )
-    parser.add_argument(
-        "--feature-format", "-f",
+        "--feature-format",
+        "-f",
         choices=["basic", "tags", "hierarchical"],
         default="basic",
-        help="Format des features dans le prompt (default: basic)"
+        help="Format des features dans le prompt (default: basic)",
     )
     parser.add_argument(
         "--analyse-path",
         type=str,
         default=None,
-        help="Chemin vers le JSON d'analyse existant (optionnel)"
+        help="Chemin vers le JSON d'analyse existant (optionnel)",
     )
 
     args = parser.parse_args()
@@ -396,6 +393,7 @@ Exemples:
     except Exception as e:
         print(f"\n[ERROR] Erreur inattendue: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

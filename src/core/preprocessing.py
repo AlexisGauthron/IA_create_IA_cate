@@ -1,7 +1,5 @@
-from typing import Tuple
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from typing import Tuple, Optional, Union
 
 
 def df_to_list(
@@ -10,7 +8,7 @@ def df_to_list(
     test_size: float = 0.2,
     random_state: int = 42,
     stratify: bool = True,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Sépare un DataFrame en X_train, X_test, y_train, y_test.
 
@@ -49,23 +47,27 @@ def df_to_list(
         stratify_arg = y if vc_min >= 2 else None
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=stratify_arg
+        X, y, test_size=test_size, random_state=random_state, stratify=stratify_arg
     )
 
     return X_train, X_test, y_train, y_test
 
 
+# =============================================================================
+# Fonction df_to_list_kaggle
+# =============================================================================
+# Renommée de 'df_to_list_Kaggle' vers 'df_to_list_kaggle'
+# Raison: Les fonctions Python doivent être en snake_case tout en minuscules
+# =============================================================================
 
-def df_to_list_Kaggle(
+
+def df_to_list_kaggle(
     df_train: pd.DataFrame,
     df_test: pd.DataFrame,
     target_col: str = "target",
     align_columns: bool = True,
-    fill_missing: Union[float, int] = 0
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    fill_missing: float | int = 0,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     À partir de df_train et df_test déjà séparés, retourne X_train, X_test, y_train, y_test.
 
@@ -90,14 +92,16 @@ def df_to_list_Kaggle(
     # Vérifications de base
     for name, df in [("df_train", df_train)]:
         if target_col not in df.columns:
-            raise KeyError(f"'{target_col}' n'est pas une colonne de {name}. Colonnes: {list(df.columns)}")
+            raise KeyError(
+                f"'{target_col}' n'est pas une colonne de {name}. Colonnes: {list(df.columns)}"
+            )
 
     # Séparation features / cible
     X_train = df_train.drop(columns=[target_col])
     y_train = df_train[target_col]
 
     X_test = df_test
- 
+
     # Harmonisation des colonnes (facultative mais pratique)
     if align_columns:
         # Conserver uniquement l'ordre/ensemble des colonnes d'entraînement

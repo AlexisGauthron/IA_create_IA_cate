@@ -3,18 +3,17 @@ Composants UI réutilisables pour l'interface Streamlit.
 """
 
 from src.front.components.chat_component import (
-    ChatComponent,
     AgentChatComponent,
+    ChatComponent,
     ChatMessage,
     MessageRole,
     render_typing_indicator,
 )
-
 from src.front.components.results_component import (
-    MetricCard,
     AnalysisResultsComponent,
-    FEResultsComponent,
     AutoMLResultsComponent,
+    FEResultsComponent,
+    MetricCard,
     PipelineResultsDashboard,
 )
 

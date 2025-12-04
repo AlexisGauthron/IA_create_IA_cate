@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Test d'intégration pour le pipeline complet.
 
@@ -17,9 +16,9 @@ Usage rapide:
         --override-metric f1 --override-time-budget 60
 """
 
-import sys
-import os
 import argparse
+import os
+import sys
 from pathlib import Path
 
 # Ajouter le dossier racine au path
@@ -37,21 +36,21 @@ if env_path.exists():
     print(f"[CONFIG] Fichier .env chargé depuis {env_path}")
 
     # LLMFE utilise API_KEY comme nom de variable (pas OPENAI_API_KEY)
-    openai_key = os.getenv('OPENAI_API_KEY')
+    openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
-        os.environ['API_KEY'] = openai_key
-        print(f"[CONFIG] API_KEY configurée pour LLMFE")
+        os.environ["API_KEY"] = openai_key
+        print("[CONFIG] API_KEY configurée pour LLMFE")
     else:
-        print(f"[CONFIG] ⚠️ OPENAI_API_KEY non trouvée dans .env")
+        print("[CONFIG] ⚠️ OPENAI_API_KEY non trouvée dans .env")
 else:
     print(f"[CONFIG] ⚠️ Fichier .env non trouvé à {env_path}")
 
 import pandas as pd
 
-
 # =============================================================================
 # Fonctions utilitaires
 # =============================================================================
+
 
 def load_data(dataset_name: str) -> pd.DataFrame:
     """
@@ -66,8 +65,7 @@ def load_data(dataset_name: str) -> pd.DataFrame:
     # Vérifier si le dossier du dataset existe
     if not dataset_dir.exists():
         available_datasets = [
-            d.name for d in data_raw_dir.iterdir()
-            if d.is_dir() and not d.name.startswith('.')
+            d.name for d in data_raw_dir.iterdir() if d.is_dir() and not d.name.startswith(".")
         ]
         raise FileNotFoundError(
             f"Dataset '{dataset_name}' non trouvé dans data/raw/.\n"
@@ -85,15 +83,21 @@ def load_data(dataset_name: str) -> pd.DataFrame:
         )
 
     # Détecter le séparateur automatiquement
-    with open(data_path, 'r', encoding='utf-8') as f:
+    with open(data_path, encoding="utf-8") as f:
         first_line = f.readline()
 
     # Compter les séparateurs potentiels
-    separators = {',': first_line.count(','), ';': first_line.count(';'), '\t': first_line.count('\t')}
-    sep = max(separators, key=separators.get) if max(separators.values()) > 0 else ','
+    separators = {
+        ",": first_line.count(","),
+        ";": first_line.count(";"),
+        "\t": first_line.count("\t"),
+    }
+    sep = max(separators, key=separators.get) if max(separators.values()) > 0 else ","
 
     df = pd.read_csv(data_path, sep=sep)
-    print(f"Dataset '{dataset_name}' chargé: {len(df)} lignes, {len(df.columns)} colonnes (sep='{sep}')")
+    print(
+        f"Dataset '{dataset_name}' chargé: {len(df)} lignes, {len(df.columns)} colonnes (sep='{sep}')"
+    )
     return df
 
 
@@ -107,6 +111,7 @@ def parse_list(value: str) -> list:
 # =============================================================================
 # Fonctions de test
 # =============================================================================
+
 
 def _filter_kwargs(kwargs: dict) -> dict:
     """Filtre les kwargs internes (préfixés par _) qui ne sont pas acceptés par run_pipeline."""
@@ -195,8 +200,8 @@ def test_pipeline_analyse_and_automl(projet_name: str, target_col: str, df: pd.D
         project_name=projet_name,
         df_train=df,
         target_col=target_col,
-        enable_fe=False,      # Désactive FE
-        enable_automl=True,   # Active AutoML
+        enable_fe=False,  # Désactive FE
+        enable_automl=True,  # Active AutoML
         **filtered_kwargs,
     )
 
@@ -338,6 +343,7 @@ def test_detected_params():
 # Configuration des arguments CLI
 # =============================================================================
 
+
 def create_parser() -> argparse.ArgumentParser:
     """Crée le parser avec tous les arguments CLI."""
     parser = argparse.ArgumentParser(
@@ -353,7 +359,7 @@ Exemples:
       --override-metric f1 --automl-frameworks flaml,autogluon
 
 Documentation complète: docs/cli_reference.md
-        """
+        """,
     )
 
     # =========================================================================
@@ -727,6 +733,7 @@ def build_kwargs_from_args(args) -> dict:
 # =============================================================================
 # Main
 # =============================================================================
+
 
 def main():
     parser = create_parser()

@@ -1,7 +1,4 @@
-
-
 def _build_system_content(stats_json: str) -> str:
-
     system_content = f"""
         Tu es un data scientist senior chargé de FORMULER LES BONNES QUESTIONS MÉTIER
         avant l'entraînement d'un modèle de machine learning.
@@ -50,12 +47,11 @@ def _build_system_content(stats_json: str) -> str:
         - Tu ne réponds PAS à la place de l'utilisateur.
         - Tu ne fournis ni code, ni analyse technique brute : seulement des questions métier claires.
         """
-    
+
     return system_content
 
 
 def build_system_content() -> str:
-
     prompt = """
         Ta mission :
 
@@ -177,6 +173,5 @@ def build_system_content() -> str:
             "features": [ ... ]
         }
         """
-
 
     return prompt

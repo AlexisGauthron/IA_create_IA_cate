@@ -1,5 +1,6 @@
 # categorical_transforms.py
 import pandas as pd
+
 from src.features_engineering.transformation_fe.registry import register
 
 
@@ -10,13 +11,15 @@ def one_hot(col):
         return pd.get_dummies(col, prefix=prefix)
     elif isinstance(col, str):
         # fallback : on crée un DataFrame avec une seule colonne
-        return pd.get_dummies(pd.Series([col]*1), prefix="feature")
+        return pd.get_dummies(pd.Series([col] * 1), prefix="feature")
     else:
         raise TypeError(f"Cannot one_hot type {type(col)}")
+
 
 @register("ordinal")
 def ordinal(col):
     return col.astype("category").cat.codes
+
 
 @register("reduce_cardinality_first_letter")
 def reduce_cardinality_first_letter(col):
@@ -24,15 +27,7 @@ def reduce_cardinality_first_letter(col):
 
 
 @register("target_encoding")
-def target_encoding(
-    col,
-    y,
-    out_of_fold,
-    smoothing,
-    n_folds = 5,
-    strategy="mean",
-    random_state=42
-):
+def target_encoding(col, y, out_of_fold, smoothing, n_folds=5, strategy="mean", random_state=42):
     """
     Target encoding robuste compatible avec la syntaxe LLM :
 
@@ -46,7 +41,6 @@ def target_encoding(
     - strategy : "mean" ou "median"
     - n_folds : utilisé uniquement si out_of_fold=True
     """
-    import numpy as np
     import pandas as pd
     from sklearn.model_selection import KFold
 
@@ -114,8 +108,6 @@ def target_encoding(
     return oof_encoded
 
 
-
-
 @register("hashing")
 def hashing(col, n_components):
     """
@@ -132,7 +124,7 @@ def hashing(col, n_components):
 
     # Création d'un DataFrame dense one-hot des buckets
     df = pd.get_dummies(hashed)
-    
+
     # S'assurer que toutes les colonnes existent
     for i in range(n_components):
         if i not in df.columns:
@@ -145,5 +137,3 @@ def hashing(col, n_components):
     df.columns = [f"hash_{col.name}_{i}" for i in range(n_components)]
 
     return df
-
-

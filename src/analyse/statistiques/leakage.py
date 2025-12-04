@@ -1,12 +1,13 @@
 # src/feature_analysis/leakage.py
-from typing import List, Dict, Any, Sequence
-import pandas as pd
-import numpy as np
+from collections.abc import Sequence
+from typing import Any
 
-from .config import FEAnalysisConfig
+import pandas as pd
 
 # 👇 nouvelle dataclass importée
 from src.analyse.dataset.all import LeakageSignalForLLM
+
+from .config import FEAnalysisConfig
 
 
 def detect_leakage(
@@ -14,7 +15,7 @@ def detect_leakage(
     feature_cols: Sequence[str],
     target_cols: Sequence[str],
     config: FEAnalysisConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Détection simple de fuites potentielles par corrélation forte entre
     features numériques et cibles numériques.
@@ -33,8 +34,8 @@ def detect_leakage(
           ]
         }
     """
-    summary: List[Dict[str, Any]] = []
-    llm_signals: List[LeakageSignalForLLM] = []
+    summary: list[dict[str, Any]] = []
+    llm_signals: list[LeakageSignalForLLM] = []
 
     # --- 1) Sélection des colonnes numériques ---
     numeric_features = [c for c in feature_cols if pd.api.types.is_numeric_dtype(df[c])]
@@ -57,17 +58,17 @@ def detect_leakage(
                 continue
             corr = corr_matrix.loc[c, t]
             if pd.notna(corr) and abs(corr) >= config.strong_corr_threshold:
-                note = (
-                    "Corrélation très forte, possible fuite ou duplication de la cible."
-                )
+                note = "Corrélation très forte, possible fuite ou duplication de la cible."
 
                 # Vue dict (comme avant)
-                summary.append({
-                    "feature": c,
-                    "target": t,
-                    "correlation": float(corr),
-                    "note": note,
-                })
+                summary.append(
+                    {
+                        "feature": c,
+                        "target": t,
+                        "correlation": float(corr),
+                        "note": note,
+                    }
+                )
 
                 # Vue dataclass pour le LLM
                 llm_signals.append(

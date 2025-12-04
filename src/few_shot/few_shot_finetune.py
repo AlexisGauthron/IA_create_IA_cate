@@ -1,17 +1,27 @@
-from sentence_transformers import SentenceTransformer, InputExample, losses
+import math
+import os
+
+from sentence_transformers import InputExample, SentenceTransformer, losses
 from sentence_transformers.evaluation import LabelAccuracyEvaluator
 from torch.utils.data import DataLoader
-import os, math
-
 
 models = [
     "sentence-transformers/all-MiniLM-L6-v2",
     "paraphrase-multilingual-MiniLM-L12-v2",
     "distilbert-base-uncased",
-    "distiluse-base-multilingual-cased-v2"
+    "distiluse-base-multilingual-cased-v2",
 ]
 
-class few_shot_finetune:
+# =============================================================================
+# Classe FewShotFinetune
+# =============================================================================
+# Renommée de 'few_shot_finetune' vers 'FewShotFinetune'
+# Raison: Les classes Python doivent être en PascalCase (pas snake_case)
+# =============================================================================
+
+
+class FewShotFinetune:
+    """Classe pour le fine-tuning few-shot de modèles de sentence transformers."""
 
     def __init__(self, train_df, dev_df):
         self.train_df = train_df
@@ -43,15 +53,18 @@ class few_shot_finetune:
             for _, row in dev_df.iterrows()
         ]
 
-
-
-    def finetune(self,model_name="sentence-transformers/all-MiniLM-L6-v2",batch_size : int =16, num_epochs : int =3, steps_evauation : int = 50):
-
+    def finetune(
+        self,
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        batch_size: int = 16,
+        num_epochs: int = 3,
+        steps_evauation: int = 50,
+    ):
         print(f"[INFO] Début fine-tuning modèle {model_name}...\n")
         model = SentenceTransformer(model_name)
 
         train_dataloader = DataLoader(self.train_samples, shuffle=True, batch_size=batch_size)
-        dev_dataloader   = DataLoader(self.dev_samples,   shuffle=False, batch_size=batch_size)
+        dev_dataloader = DataLoader(self.dev_samples, shuffle=False, batch_size=batch_size)
 
         # 3) Définir la loss de classification (SoftmaxLoss = NLI-style, 2 phrases)
         num_labels = len(self.label2id)
@@ -71,7 +84,9 @@ class few_shot_finetune:
         # 5) Entraînement
         warmup_steps = math.ceil(len(train_dataloader) * num_epochs * 0.1)
 
-        output_dir = "Modeles/finetune/finetuned_" + model_name.replace("/", "_") + f"_{num_epochs}ep"
+        output_dir = (
+            "Modeles/finetune/finetuned_" + model_name.replace("/", "_") + f"_{num_epochs}ep"
+        )
         os.makedirs(output_dir, exist_ok=True)
 
         model.fit(
@@ -84,10 +99,9 @@ class few_shot_finetune:
         )
 
         # 👇 Évaluation finale explicite
-        final_acc = dev_evaluator(model)   # retourne un float entre 0 et 1
+        final_acc = dev_evaluator(model)  # retourne un float entre 0 et 1
         print(f"[RESULT] Accuracy finale sur dev : {final_acc}")
 
         print(f"Modèle sauvegardé dans {output_dir}")
         # return output_dir, self.label2id, self.id2label
         return output_dir
-    

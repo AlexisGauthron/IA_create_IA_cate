@@ -2,11 +2,12 @@
 Composants de visualisation des résultats pour le pipeline ML.
 """
 
-import streamlit as st
-import pandas as pd
-from pathlib import Path
-from typing import Optional, Dict, Any, List
 import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import streamlit as st
 
 
 class MetricCard:
@@ -16,7 +17,7 @@ class MetricCard:
     def render(
         label: str,
         value: Any,
-        delta: Optional[float] = None,
+        delta: float | None = None,
         delta_color: str = "normal",
         icon: str = "",
     ):
@@ -46,7 +47,7 @@ class MetricCard:
 class AnalysisResultsComponent:
     """Composant pour afficher les résultats de l'analyse statistique."""
 
-    def __init__(self, stats_report: Dict[str, Any]):
+    def __init__(self, stats_report: dict[str, Any]):
         """
         Args:
             stats_report: Rapport statistique (llm_payload) généré par src/analyse
@@ -66,10 +67,7 @@ class AnalysisResultsComponent:
             st.metric("Features", n_features)
 
         with col2:
-            missing = sum(
-                1 for feat in self.features_list
-                if feat.get("missing_ratio", 0) > 0
-            )
+            missing = sum(1 for feat in self.features_list if feat.get("missing_ratio", 0) > 0)
             st.metric("Avec manquants", missing)
 
         with col3:
@@ -115,13 +113,15 @@ class AnalysisResultsComponent:
 
         data = []
         for feat in self.features_list:
-            data.append({
-                "Feature": feat.get("name", "?"),
-                "Type": feat.get("inferred_type", feat.get("dtype", "?")),
-                "Uniques": feat.get("n_unique", 0),
-                "Manquants": f"{feat.get('missing_ratio', 0)*100:.1f}%",
-                "Flags": ", ".join(feat.get("flags", [])) or "-",
-            })
+            data.append(
+                {
+                    "Feature": feat.get("name", "?"),
+                    "Type": feat.get("inferred_type", feat.get("dtype", "?")),
+                    "Uniques": feat.get("n_unique", 0),
+                    "Manquants": f"{feat.get('missing_ratio', 0)*100:.1f}%",
+                    "Flags": ", ".join(feat.get("flags", [])) or "-",
+                }
+            )
 
         df = pd.DataFrame(data)
         st.dataframe(df, use_container_width=True, hide_index=True)
@@ -133,10 +133,12 @@ class AnalysisResultsComponent:
         for feat in self.features_list:
             corr = feat.get("target_correlation")
             if corr is not None and isinstance(corr, (int, float)):
-                corr_data.append({
-                    "Feature": feat.get("name", "?"),
-                    "Corrélation": corr,
-                })
+                corr_data.append(
+                    {
+                        "Feature": feat.get("name", "?"),
+                        "Corrélation": corr,
+                    }
+                )
 
         if not corr_data:
             st.info("Pas de corrélations disponibles.")
@@ -184,7 +186,7 @@ class FEResultsComponent:
         """
         self.results_dir = Path(results_dir)
 
-    def _load_json(self, filename: str) -> Optional[Dict]:
+    def _load_json(self, filename: str) -> dict | None:
         """Charge un fichier JSON."""
         path = self.results_dir / filename
         if path.exists():
@@ -286,7 +288,7 @@ class FEResultsComponent:
 class AutoMLResultsComponent:
     """Composant pour afficher les résultats AutoML."""
 
-    def __init__(self, results: Dict[str, Any]):
+    def __init__(self, results: dict[str, Any]):
         """
         Args:
             results: Résultats AutoML
@@ -326,10 +328,12 @@ class AutoMLResultsComponent:
 
         data = []
         for feature, imp in sorted_imp[:15]:
-            data.append({
-                "Feature": feature,
-                "Importance": imp,
-            })
+            data.append(
+                {
+                    "Feature": feature,
+                    "Importance": imp,
+                }
+            )
 
         if data:
             df = pd.DataFrame(data)
@@ -373,9 +377,9 @@ class PipelineResultsDashboard:
 
     def __init__(
         self,
-        stats_report: Optional[Dict] = None,
-        fe_results_dir: Optional[str] = None,
-        automl_results: Optional[Dict] = None,
+        stats_report: dict | None = None,
+        fe_results_dir: str | None = None,
+        automl_results: dict | None = None,
         project_name: str = "Projet",
     ):
         self.stats_report = stats_report
@@ -385,11 +389,14 @@ class PipelineResultsDashboard:
 
     def render_header(self):
         """Affiche l'en-tête du dashboard."""
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div style="text-align: center; padding: 1rem; background: var(--card-bg); border-radius: 12px; margin-bottom: 1rem;">
             <h2>📊 Résultats - {self.project_name}</h2>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
     def render_pipeline_status(self):
         """Affiche le statut de chaque étape."""

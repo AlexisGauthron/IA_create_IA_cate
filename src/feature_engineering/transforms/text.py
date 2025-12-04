@@ -1,16 +1,18 @@
 # text_transforms.py
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from src.features_engineering.transformation_fe.registry import register
 import re
 from collections import Counter
+
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+from src.features_engineering.transformation_fe.registry import register
 
 
 @register("tfidf")
 def tfidf(text, n_components=2048):
     """
     TF-IDF robuste : gère les valeurs manquantes et crée un DataFrame.
-    
+
     Paramètres :
     - text : pd.Series de type string (peut contenir NaN)
     - n_components : nombre de features TF-IDF
@@ -27,9 +29,8 @@ def tfidf(text, n_components=2048):
     return pd.DataFrame(arr, columns=[f"tfidf_{i}" for i in range(arr.shape[1])])
 
 
-
 @register("hashing_ngrams")
-def hashing_ngrams(text_col, n_components = 1024):
+def hashing_ngrams(text_col, n_components=1024):
     """
     Hashing trick basé sur des ngrams (1–3) sur du texte.
     Version simplifiée du HashingVectorizer.
@@ -51,9 +52,9 @@ def hashing_ngrams(text_col, n_components = 1024):
         for i in range(L):
             ngrams.append(tokens[i])
             if i + 1 < L:
-                ngrams.append(tokens[i] + "_" + tokens[i+1])
+                ngrams.append(tokens[i] + "_" + tokens[i + 1])
             if i + 2 < L:
-                ngrams.append(tokens[i] + "_" + tokens[i+1] + "_" + tokens[i+2])
+                ngrams.append(tokens[i] + "_" + tokens[i + 1] + "_" + tokens[i + 2])
         return ngrams
 
     # Matrice finale
@@ -68,8 +69,7 @@ def hashing_ngrams(text_col, n_components = 1024):
         rows.append(row)
 
     df = pd.DataFrame(
-        rows,
-        columns=[f"hash_ngram_{text_col.name}_{i}" for i in range(n_components)]
+        rows, columns=[f"hash_ngram_{text_col.name}_{i}" for i in range(n_components)]
     )
 
     return df

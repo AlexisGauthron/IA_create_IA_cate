@@ -1,8 +1,10 @@
 """
 Tests unitaires pour le module feature_engineering.
 """
-import sys
+
 import os
+import sys
+
 import pytest
 
 # Ajoute le dossier 'src' à sys.path si ce n'est pas déjà fait
@@ -12,7 +14,7 @@ if src_path not in sys.path:
 
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
@@ -23,15 +25,17 @@ class TestFeatureEngineeringImports:
     def test_import_planner(self):
         """Test l'import du planner."""
         from src.feature_engineering.declarative.planner import LLMFeatureEngineeringPipeline
+
         assert LLMFeatureEngineeringPipeline is not None
 
     def test_import_parsing(self):
         """Test l'import du parsing."""
         from src.feature_engineering.declarative.parsing import (
-            parse_llm_response,
+            FeatureTransformationSpec,
             LLMFEPlan,
-            FeatureTransformationSpec
+            parse_llm_response,
         )
+
         assert parse_llm_response is not None
         assert LLMFEPlan is not None
         assert FeatureTransformationSpec is not None
@@ -39,6 +43,7 @@ class TestFeatureEngineeringImports:
     def test_import_prompt(self):
         """Test l'import du prompt builder."""
         from src.feature_engineering.declarative.prompt import build_prompt_from_report
+
         assert build_prompt_from_report is not None
 
 
@@ -49,7 +54,7 @@ class TestParsing:
         """Test le parsing d'un JSON valide."""
         from src.feature_engineering.declarative.parsing import parse_llm_response
 
-        raw_response = '''
+        raw_response = """
         {
             "features_plan": [
                 {
@@ -63,7 +68,7 @@ class TestParsing:
             "global_notes": ["Dataset has missing values in Age"],
             "questions_for_user": ["Is Age important for prediction?"]
         }
-        '''
+        """
 
         plan = parse_llm_response(raw_response)
 
@@ -88,7 +93,7 @@ class TestParsing:
         """Test le parsing d'un JSON entouré de texte."""
         from src.feature_engineering.declarative.parsing import parse_llm_response
 
-        raw_response = '''
+        raw_response = """
         Here is my analysis:
         {
             "features_plan": [],
@@ -96,7 +101,7 @@ class TestParsing:
             "questions_for_user": []
         }
         That's my recommendation.
-        '''
+        """
 
         plan = parse_llm_response(raw_response)
         assert len(plan.global_notes) == 1
@@ -109,11 +114,11 @@ class TestLLMClient:
     def test_import_llm_client(self):
         """Test l'import du client LLM."""
         from src.core.llm_client import OllamaClient
+
         assert OllamaClient is not None
 
     @pytest.mark.skipif(
-        not os.getenv("OPENAI_API_KEY"),
-        reason="OPENAI_API_KEY non définie - test skipped"
+        not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY non définie - test skipped"
     )
     def test_openai_client_init(self):
         """Test l'initialisation du client OpenAI."""

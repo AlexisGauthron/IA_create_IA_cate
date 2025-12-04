@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import os.path
-from typing import List, Dict, Optional, TYPE_CHECKING
-import logging
 import json
-import pandas as pd
+import logging
+import os.path
+from typing import TYPE_CHECKING
+
 import numpy as np
+import pandas as pd
+from torch.utils.tensorboard import SummaryWriter
+
 from src.feature_engineering.llmfe import code_manipulation
 from src.feature_engineering.llmfe.evolution_tracker import EvolutionTracker
-from torch.utils.tensorboard import SummaryWriter
 
 # Import conditionnel pour éviter les imports circulaires
 if TYPE_CHECKING:
@@ -19,13 +21,13 @@ if TYPE_CHECKING:
 
 class Profiler:
     def __init__(
-            self,
-            log_dir: Optional[str] = None,
-            pkl_dir: Optional[str] = None,
-            max_log_nums: Optional[int] = None,
-            path_config: Optional["FeatureEngineeringPathConfig"] = None,
-            original_features: Optional[List[str]] = None,
-            target_column: Optional[str] = None,
+        self,
+        log_dir: str | None = None,
+        pkl_dir: str | None = None,
+        max_log_nums: int | None = None,
+        path_config: FeatureEngineeringPathConfig | None = None,
+        original_features: list[str] | None = None,
+        target_column: str | None = None,
     ):
         """
         Args:
@@ -48,7 +50,7 @@ class Profiler:
             self._results_dir = str(path_config.llmfe_results_dir)
         else:
             self._log_dir = log_dir
-            self._json_dir = os.path.join(log_dir, 'samples') if log_dir else None
+            self._json_dir = os.path.join(log_dir, "samples") if log_dir else None
             self._results_dir = None
 
         # Créer les dossiers nécessaires
@@ -65,7 +67,7 @@ class Profiler:
         self._evaluate_failed_program_num = 0
         self._tot_sample_time = 0
         self._tot_evaluate_time = 0
-        self._all_sampled_functions: Dict[int, code_manipulation.Function] = {}
+        self._all_sampled_functions: dict[int, code_manipulation.Function] = {}
 
         if self._log_dir:
             self._writer = SummaryWriter(log_dir=self._log_dir)
@@ -107,30 +109,26 @@ class Profiler:
             return
 
         self._writer.add_scalar(
-            'Best Score of Function',
-            self._cur_best_program_score,
-            global_step=self._num_samples
+            "Best Score of Function", self._cur_best_program_score, global_step=self._num_samples
         )
         self._writer.add_scalars(
-            'Legal/Illegal Function',
+            "Legal/Illegal Function",
             {
-                'legal function num': self._evaluate_success_program_num,
-                'illegal function num': self._evaluate_failed_program_num
+                "legal function num": self._evaluate_success_program_num,
+                "illegal function num": self._evaluate_failed_program_num,
             },
-            global_step=self._num_samples
+            global_step=self._num_samples,
         )
         self._writer.add_scalars(
-            'Total Sample/Evaluate Time',
-            {'sample time': self._tot_sample_time, 'evaluate time': self._tot_evaluate_time},
-            global_step=self._num_samples
+            "Total Sample/Evaluate Time",
+            {"sample time": self._tot_sample_time, "evaluate time": self._tot_evaluate_time},
+            global_step=self._num_samples,
         )
-        
+
         # Log the function_str (seulement si non None)
         if self._cur_best_program_str is not None:
             self._writer.add_text(
-                'Best Function String',
-                self._cur_best_program_str,
-                global_step=self._num_samples
+                "Best Function String", self._cur_best_program_str, global_step=self._num_samples
             )
 
     def _write_json(self, programs: code_manipulation.Function):
@@ -144,20 +142,16 @@ class Profiler:
         if self._path_config is not None:
             path = self._path_config.get_llmfe_sample_path(sample_order)
             content = {
-                'sample_order': sample_order,
-                'function': function_str,
-                'score': score,
-                'timestamp': None
+                "sample_order": sample_order,
+                "function": function_str,
+                "score": score,
+                "timestamp": None,
             }
         else:
-            path = os.path.join(self._json_dir, f'samples_{sample_order}.json')
-            content = {
-                'sample_order': sample_order,
-                'function': function_str,
-                'score': score
-            }
+            path = os.path.join(self._json_dir, f"samples_{sample_order}.json")
+            content = {"sample_order": sample_order, "function": function_str, "score": score}
 
-        with open(path, 'w', encoding='utf-8') as json_file:
+        with open(path, "w", encoding="utf-8") as json_file:
             json.dump(content, json_file, indent=2, ensure_ascii=False)
 
     def register_function(self, programs: code_manipulation.Function):
@@ -174,7 +168,7 @@ class Profiler:
 
             # Enregistrer dans l'EvolutionTracker
             if self._evolution_tracker is not None:
-                function_str = str(programs).strip('\n')
+                function_str = str(programs).strip("\n")
                 error_msg = None
                 if programs.score is None:
                     error_msg = "Evaluation failed"
@@ -190,19 +184,19 @@ class Profiler:
 
     def _record_and_verbose(self, sample_orders: int):
         function = self._all_sampled_functions[sample_orders]
-        function_str = str(function).strip('\n')
+        function_str = str(function).strip("\n")
         sample_time = function.sample_time
         evaluate_time = function.evaluate_time
         score = function.score
         # log attributes of the function
-        print(f'================= Evaluated Function =================')
-        print(f'{function_str}')
-        print(f'------------------------------------------------------')
-        print(f'Score        : {str(score)}')
-        print(f'Sample time  : {str(sample_time)}')
-        print(f'Evaluate time: {str(evaluate_time)}')
-        print(f'Sample orders: {str(sample_orders)}')
-        print(f'======================================================\n\n')
+        print("================= Evaluated Function =================")
+        print(f"{function_str}")
+        print("------------------------------------------------------")
+        print(f"Score        : {str(score)}")
+        print(f"Sample time  : {str(sample_time)}")
+        print(f"Evaluate time: {str(evaluate_time)}")
+        print(f"Sample orders: {str(sample_orders)}")
+        print("======================================================\n\n")
 
         # update best function in curve
         if function.score is not None and score > self._cur_best_program_score:
@@ -233,7 +227,7 @@ class Profiler:
         print("=" * 70)
 
         # Statistiques générales
-        print(f"\n📊 STATISTIQUES GÉNÉRALES:")
+        print("\n📊 STATISTIQUES GÉNÉRALES:")
         print(f"   • Total de modèles générés    : {self._num_samples}")
         print(f"   • Modèles valides (avec score): {self._evaluate_success_program_num}")
         print(f"   • Modèles échoués             : {self._evaluate_failed_program_num}")
@@ -251,11 +245,11 @@ class Profiler:
             return
 
         # Meilleur modèle
-        print(f"\n🏆 MEILLEUR MODÈLE:")
+        print("\n🏆 MEILLEUR MODÈLE:")
         print(f"   • Score: {self._cur_best_program_score}")
         print(f"   • Ordre d'échantillonnage: {self._cur_best_program_sample_order}")
-        print(f"   • Code:")
-        for line in self._cur_best_program_str.split('\n'):
+        print("   • Code:")
+        for line in self._cur_best_program_str.split("\n"):
             print(f"      {line}")
 
         # Top N modèles
@@ -265,7 +259,7 @@ class Profiler:
             print(f"\n   #{i} | Score: {func.score:.6f} | Sample order: {func.global_sample_nums}")
             func_str = str(func).strip()
             # Afficher les premières lignes du code
-            lines = func_str.split('\n')
+            lines = func_str.split("\n")
             for line in lines[:8]:  # Limiter à 8 lignes par fonction
                 print(f"      {line}")
             if len(lines) > 8:
@@ -275,15 +269,17 @@ class Profiler:
         # Distribution des scores
         if len(sorted_functions) > 1:
             scores = [f.score for f in sorted_functions]
-            print(f"\n📉 DISTRIBUTION DES SCORES:")
+            print("\n📉 DISTRIBUTION DES SCORES:")
             print(f"   • Score max    : {max(scores):.6f}")
             print(f"   • Score min    : {min(scores):.6f}")
             print(f"   • Score moyen  : {sum(scores)/len(scores):.6f}")
-            print(f"   • Écart-type   : {(sum((s - sum(scores)/len(scores))**2 for s in scores) / len(scores))**0.5:.6f}")
+            print(
+                f"   • Écart-type   : {(sum((s - sum(scores)/len(scores))**2 for s in scores) / len(scores))**0.5:.6f}"
+            )
 
         # Chemin des logs
         if self._log_dir:
-            print(f"\n📁 FICHIERS DE LOGS:")
+            print("\n📁 FICHIERS DE LOGS:")
             print(f"   • TensorBoard : {self._log_dir}")
             print(f"   • JSON samples: {self._json_dir}")
 
@@ -302,7 +298,7 @@ class Profiler:
             self._evolution_tracker.save_parquet()
             self._evolution_tracker.generate_report()
 
-    def _save_final_results(self, sorted_functions: List[code_manipulation.Function]):
+    def _save_final_results(self, sorted_functions: list[code_manipulation.Function]):
         """Sauvegarde les résultats finaux dans le dossier results."""
         if self._path_config is None:
             return
@@ -388,9 +384,12 @@ class Profiler:
             self._path_config.save_transformed_dataset(df_transformed)
             print(f"✅ Dataset transformé sauvegardé dans: {self._path_config.dataset_fe_dir}")
             print(f"   - {len(df_transformed)} lignes, {len(df_transformed.columns)} colonnes")
-            print(f"   - Nouvelles features: {len(df_transformed.columns) - len(self._df_original.columns)}")
+            print(
+                f"   - Nouvelles features: {len(df_transformed.columns) - len(self._df_original.columns)}"
+            )
 
         except Exception as e:
             print(f"⚠️ Erreur lors de l'application de modify_features: {e}")
             import traceback
+
             traceback.print_exc()

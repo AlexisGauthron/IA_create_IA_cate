@@ -2,18 +2,17 @@
 # FeatureCorrelationAnalyzer — Version Ultra Complète
 # ============================================================
 
-import pandas as pd
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
-
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import KFold
 
 # Imports optionnels - ces librairies peuvent ne pas être installées
 try:
     from minepy import MINE
+
     HAS_MINEPY = True
 except ImportError:
     HAS_MINEPY = False
@@ -21,18 +20,19 @@ except ImportError:
 
 try:
     import phik
+
     HAS_PHIK = True
 except ImportError:
     HAS_PHIK = False
     print("[CORRELATIONS] phik non installé - PhiK sera ignoré")
 
-from joblib import Parallel, delayed
-from typing import Optional, List
 
+from joblib import Parallel, delayed
 
 # ============================================================
 #                MAIN ANALYZER CLASS
 # ============================================================
+
 
 class FeatureCorrelationAnalyzer:
     """
@@ -91,12 +91,14 @@ class FeatureCorrelationAnalyzer:
         spearman = X.corrwith(self.y, method="spearman")
         kendall = X.corrwith(self.y, method="kendall")
 
-        df_corr = pd.DataFrame({
-            "feature": X.columns,
-            "pearson": pearson.values,
-            "spearman": spearman.values,
-            "kendall": kendall.values,
-        })
+        df_corr = pd.DataFrame(
+            {
+                "feature": X.columns,
+                "pearson": pearson.values,
+                "spearman": spearman.values,
+                "kendall": kendall.values,
+            }
+        )
 
         return df_corr
 
@@ -113,10 +115,7 @@ class FeatureCorrelationAnalyzer:
         else:
             mi = mutual_info_regression(X, self.y, discrete_features=discrete, random_state=42)
 
-        return pd.DataFrame({
-            "feature": X.columns,
-            "mutual_info": mi
-        })
+        return pd.DataFrame({"feature": X.columns, "mutual_info": mi})
 
     # ============================================================
     #                       MIC
@@ -127,10 +126,7 @@ class FeatureCorrelationAnalyzer:
         if not HAS_MINEPY:
             # Retourner un DataFrame vide si minepy n'est pas installé
             X = self._prepare_features()
-            return pd.DataFrame({
-                "feature": X.columns,
-                "mic": [0.0] * len(X.columns)
-            })
+            return pd.DataFrame({"feature": X.columns, "mic": [0.0] * len(X.columns)})
 
         X = self._prepare_features()
         mic_scores = []
@@ -141,10 +137,7 @@ class FeatureCorrelationAnalyzer:
             mine.compute_score(X[col], self.y)
             mic_scores.append(mine.mic())
 
-        return pd.DataFrame({
-            "feature": X.columns,
-            "mic": mic_scores
-        })
+        return pd.DataFrame({"feature": X.columns, "mic": mic_scores})
 
     # ============================================================
     #                        PhiK
@@ -155,10 +148,7 @@ class FeatureCorrelationAnalyzer:
         if not HAS_PHIK:
             # Retourner un DataFrame vide si phik n'est pas installé
             X = self._prepare_features()
-            return pd.DataFrame({
-                "feature": X.columns,
-                "phik": [0.0] * len(X.columns)
-            })
+            return pd.DataFrame({"feature": X.columns, "phik": [0.0] * len(X.columns)})
 
         X = self._prepare_features()
         df_full = pd.concat([X, self.y], axis=1)
@@ -166,10 +156,7 @@ class FeatureCorrelationAnalyzer:
         phik_matrix = df_full.phik_matrix(interval_cols=X.columns.tolist())
         target_row = phik_matrix.loc[self.target_col, X.columns]
 
-        return pd.DataFrame({
-            "feature": X.columns,
-            "phik": target_row.values
-        })
+        return pd.DataFrame({"feature": X.columns, "phik": target_row.values})
 
     # ============================================================
     #              PARALLEL MIC (10× plus rapide)
@@ -178,10 +165,7 @@ class FeatureCorrelationAnalyzer:
     def parallel_compute_mic(self, n_jobs=-1):
         if not HAS_MINEPY:
             X = self._prepare_features()
-            return pd.DataFrame({
-                "feature": X.columns,
-                "mic": [0.0] * len(X.columns)
-            })
+            return pd.DataFrame({"feature": X.columns, "mic": [0.0] * len(X.columns)})
 
         X = self._prepare_features()
 
@@ -190,9 +174,7 @@ class FeatureCorrelationAnalyzer:
             mine.compute_score(X[col], self.y)
             return col, mine.mic()
 
-        results = Parallel(n_jobs=n_jobs)(
-            delayed(mic_one)(col) for col in X.columns
-        )
+        results = Parallel(n_jobs=n_jobs)(delayed(mic_one)(col) for col in X.columns)
 
         return pd.DataFrame(results, columns=["feature", "mic"])
 
@@ -242,7 +224,6 @@ class FeatureCorrelationAnalyzer:
     # ============================================================
 
     def plot_multi_heatmap(self, save_path=None):
-
         corr_df = self.compute_classical_correlations().set_index("feature")
         mi_df = self.compute_mutual_info().set_index("feature")
         mic_df = self.compute_mic_matrix().set_index("feature")
@@ -261,10 +242,9 @@ class FeatureCorrelationAnalyzer:
         plt.show()
 
 
-def use_all(df,target_col,task):
-
-        # 1. Instanciation
-    analyzer = FeatureCorrelationAnalyzer(df, target_col=target_col,task=task)
+def use_all(df, target_col, task):
+    # 1. Instanciation
+    analyzer = FeatureCorrelationAnalyzer(df, target_col=target_col, task=task)
 
     # 2. Corrélations
     corr = analyzer.compute_classical_correlations()
@@ -296,22 +276,20 @@ def use_all(df,target_col,task):
     print("\n=== Score combiné ===")
     print(scores)
 
-
     # 8. Heatmap globale
     # analyzer.plot_multi_heatmap()
 
     return scores
 
 
-
-import numpy as np
 import pandas as pd
+
 
 def get_top_features(corr_df, n=20, penalize_ids=True, id_threshold=0.9, id_factor=0.1):
     """
     Retourne les n meilleures features selon un score combiné
     utilisant Pearson, Spearman, Kendall, Mutual Info, MIC et Phik.
-    
+
     Penalise fortement les colonnes ressemblant à des IDs (beaucoup de valeurs uniques).
 
     corr_df : DataFrame produit par `compute_all_correlations`
@@ -325,9 +303,11 @@ def get_top_features(corr_df, n=20, penalize_ids=True, id_threshold=0.9, id_fact
     df = corr_df.copy()
     df = df.replace({None: np.nan})
 
-    metric_cols = [c for c in ["pearson", "spearman", "kendall",
-                               "mutual_info", "mic", "phik"]
-                   if c in df.columns]
+    metric_cols = [
+        c
+        for c in ["pearson", "spearman", "kendall", "mutual_info", "mic", "phik"]
+        if c in df.columns
+    ]
 
     df[metric_cols] = df[metric_cols].fillna(0)
 
@@ -338,16 +318,17 @@ def get_top_features(corr_df, n=20, penalize_ids=True, id_threshold=0.9, id_fact
 
     # Score global pondéré
     df["global_score"] = (
-        0.20 * df.get("pearson", 0).abs() +
-        0.20 * df.get("spearman", 0).abs() +
-        0.15 * df.get("kendall", 0).abs() +
-        0.25 * df.get("mutual_info", 0) +
-        0.10 * df.get("mic", 0) +
-        0.10 * df.get("phik", 0)
+        0.20 * df.get("pearson", 0).abs()
+        + 0.20 * df.get("spearman", 0).abs()
+        + 0.15 * df.get("kendall", 0).abs()
+        + 0.25 * df.get("mutual_info", 0)
+        + 0.10 * df.get("mic", 0)
+        + 0.10 * df.get("phik", 0)
     )
 
     # Détecter et pénaliser les IDs
     if penalize_ids:
+
         def id_penalty(row):
             feature_name = str(row["feature"]).lower()
             # Si le nom ressemble à un ID
@@ -366,4 +347,3 @@ def get_top_features(corr_df, n=20, penalize_ids=True, id_threshold=0.9, id_fact
     top_features = df_sorted["feature"].head(n).tolist()
 
     return df_sorted.head(n), top_features
-

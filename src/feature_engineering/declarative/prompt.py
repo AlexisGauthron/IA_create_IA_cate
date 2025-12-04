@@ -1,12 +1,13 @@
 # prompt.py
-from typing import Dict, Any, Optional, List
 import textwrap
+from typing import Any
+
 
 def build_prompt_from_report(
-    report: Dict[str, Any],
+    report: dict[str, Any],
     *,
-    user_description: Optional[str] = None,
-    extra_instructions: Optional[str] = None,
+    user_description: str | None = None,
+    extra_instructions: str | None = None,
     max_features_in_prompt: int = 50,
 ) -> str:
     """
@@ -36,7 +37,7 @@ def build_prompt_from_report(
     selected_feature_names = all_feature_names[:max_features_in_prompt]
 
     # --- Résumé des cibles ---
-    targets_summary_lines: List[str] = []
+    targets_summary_lines: list[str] = []
     for t_name, t_info in targets.items():
         # Adaptation : problem_type au lieu de problem_hint, inferred_target_type pour target_type
         line = (
@@ -47,7 +48,7 @@ def build_prompt_from_report(
         targets_summary_lines.append(line)
 
     # --- Détail des features (sélectionnées) ---
-    features_summary_lines: List[str] = []
+    features_summary_lines: list[str] = []
 
     # Pour calculer unique_ratio = n_unique / n_rows
     n_rows = g["n_rows"]
@@ -200,7 +201,9 @@ def build_prompt_from_report(
     # --- Description utilisateur (optionnelle) ---
     user_desc_block = ""
     if user_description:
-        user_desc_block = "Description donnée par l'utilisateur :\n" + user_description.strip() + "\n"
+        user_desc_block = (
+            "Description donnée par l'utilisateur :\n" + user_description.strip() + "\n"
+        )
 
     # --- Assemblage final du prompt ---
     prompt = textwrap.dedent(

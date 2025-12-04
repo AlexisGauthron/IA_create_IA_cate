@@ -1,14 +1,15 @@
 # src/llm/business_clarification_bot.py
 from __future__ import annotations
+
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Union, Optional
-import json
+from typing import Any
 
-from src.core.llm_client import OllamaClient
 import src.analyse.metier.prompt_metier as prompt_metier
 from src.analyse.helper.helper_json_safe import make_json_safe
+from src.core.llm_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +62,15 @@ class BusinessClarificationBot:
         Client Ollama (ou autre) qui expose une méthode .chat(messages: List[dict]) -> str
     """
 
-    stats: Union[Dict[str, Any], str]
+    stats: dict[str, Any] | str
     llm: OllamaClient
-    messages: List[Dict[str, str]] = field(default_factory=list)
+    messages: list[dict[str, str]] = field(default_factory=list)
 
     # sera rempli par _init_system_message
     stats_json: str | None = None
 
     # Historique de conversation avec timestamps pour export
-    conversation_history: List[Dict[str, Any]] = field(default_factory=list)
+    conversation_history: list[dict[str, Any]] = field(default_factory=list)
     system_prompt: str | None = None
     start_time: str | None = None
 
@@ -107,7 +108,6 @@ class BusinessClarificationBot:
 
         # 2) Si on a un dict JSON-safe, on applique la pipeline de compactage
         if safe_stats is not None:
-
             # 2.2 Normalisation des strings (optionnelle, pour virer \n dans les textes)
             compact_payload = normalize_string_whitespace(safe_stats)
 
@@ -142,12 +142,11 @@ class BusinessClarificationBot:
         self.messages.append({"role": "system", "content": system_content})
 
         logger.debug("System message initialisé.")
-        logger.info(f"Taille snapshot LLM compacté (JSON minifié) : {len(self.stats_json)} caractères.")
+        logger.info(
+            f"Taille snapshot LLM compacté (JSON minifié) : {len(self.stats_json)} caractères."
+        )
         logger.info(f"Taille contexte LLM : {len(self.messages)} messages.")
         logger.debug(f"stats_json (début) : {str(self.stats_json)[:200]}...")
-
-
-
 
     # ---------------------------------------------------------
     # Gestion de la taille du contexte
@@ -187,9 +186,8 @@ class BusinessClarificationBot:
         """
         if user_answer is None:
             # Premier tour : on fournit au LLM le snapshot compressé
-            user_content = (
-                "Voici le snapshot JSON compressé du dataset :\n"
-                + (self.stats_json or "")
+            user_content = "Voici le snapshot JSON compressé du dataset :\n" + (
+                self.stats_json or ""
             )
         else:
             # Tours suivants : on fournit la réponse de l'utilisateur
@@ -203,11 +201,9 @@ class BusinessClarificationBot:
         self.messages.append({"role": "user", "content": user_content})
 
         # Enregistrer le message utilisateur dans l'historique avec timestamp
-        self.conversation_history.append({
-            "role": "user",
-            "content": user_content,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.conversation_history.append(
+            {"role": "user", "content": user_content, "timestamp": datetime.now().isoformat()}
+        )
 
         # Tronquer l'historique si nécessaire AVANT d'envoyer au LLM
         self._truncate_history_if_needed()
@@ -218,11 +214,9 @@ class BusinessClarificationBot:
         self.messages.append({"role": "assistant", "content": answer})
 
         # Enregistrer la réponse de l'assistant dans l'historique avec timestamp
-        self.conversation_history.append({
-            "role": "assistant",
-            "content": answer,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.conversation_history.append(
+            {"role": "assistant", "content": answer, "timestamp": datetime.now().isoformat()}
+        )
 
         return answer
 
@@ -231,11 +225,11 @@ class BusinessClarificationBot:
     # ---------------------------------------------------------
     def export_conversation(
         self,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        project: Optional[str] = None,
-        final_report: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        provider: str | None = None,
+        model: str | None = None,
+        project: str | None = None,
+        final_report: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Exporte la conversation complète dans un format structuré.
 
@@ -255,10 +249,10 @@ class BusinessClarificationBot:
                 "provider": provider,
                 "model": model,
                 "project": project,
-                "total_exchanges": len(self.conversation_history)
+                "total_exchanges": len(self.conversation_history),
             },
             "system_prompt": self.system_prompt,
             "stats_snapshot": self.stats_json,
             "conversation": self.conversation_history,
-            "final_report": final_report
+            "final_report": final_report,
         }

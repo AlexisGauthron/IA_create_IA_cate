@@ -1,12 +1,15 @@
 # pipeline.py
 from __future__ import annotations
 
-from typing import Callable, Dict, Any, Optional
-import textwrap
+from collections.abc import Callable
+from typing import Any
 
 from src.analyse.statistiques.report import FEAnalysisConfig
-from src.features_engineering.LLM.transcriptions_fe.prompt import build_prompt_fe_step2  # Assuming relative import in the same package
 from src.features_engineering.LLM.transcriptions_fe.parsing import parse_llm_response
+from src.features_engineering.LLM.transcriptions_fe.prompt import (
+    build_prompt_fe_step2,  # Assuming relative import in the same package
+)
+
 
 class LLMFeatureEngineeringTransformations:
     """
@@ -25,8 +28,7 @@ class LLMFeatureEngineeringTransformations:
 
     def __init__(
         self,
-        config: Optional[FEAnalysisConfig] = None,
-
+        config: FEAnalysisConfig | None = None,
     ) -> None:
         """
         Parameters
@@ -46,13 +48,13 @@ class LLMFeatureEngineeringTransformations:
 
     def analyse_and_transforme(
         self,
-        stats: Dict[str, Any],
+        stats: dict[str, Any],
         llm_func: Callable[[str], str],
         *,
         print_prompt: bool = False,
-        local_llm = False,
-        just_prompt = True,
-    ) -> Dict[str, Any]:
+        local_llm=False,
+        just_prompt=True,
+    ) -> dict[str, Any]:
         """
         Étape complète :
           - analyse du dataset
@@ -62,7 +64,7 @@ class LLMFeatureEngineeringTransformations:
 
         Parameters
         ----------
-        stats : Dict[str, Any] 
+        stats : Dict[str, Any]
             Rapport détaillé json (au format fourni : "context", "basic_stats", "target", "features")
         llm_func : Callable[[str], str]
             Fonction qui appelle le LLM et renvoie une réponse texte.
@@ -102,7 +104,7 @@ class LLMFeatureEngineeringTransformations:
             # Appel au LLM
             raw_response = llm_func(prompt)
 
-            print("\n\nBRUTE :\n\n",raw_response,"\n\n")
+            print("\n\nBRUTE :\n\n", raw_response, "\n\n")
             # Parsing de la réponse en plan structuré
 
             plan = parse_llm_response(raw_response)
@@ -112,7 +114,7 @@ class LLMFeatureEngineeringTransformations:
                 "prompt": prompt,
                 "plan": plan,
             }
-        else: 
+        else:
             return {
                 "report": stats,
                 "prompt": prompt,

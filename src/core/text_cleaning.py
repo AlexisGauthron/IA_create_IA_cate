@@ -1,9 +1,9 @@
-from typing import List
 import pandas as pd
 
 MISSING_TOKENS = {"", "nan", "none", "null", "na", "n/a", "-", "--"}
 
-def _clean_labels(seq) -> List[str]:
+
+def _clean_labels(seq) -> list[str]:
     s = pd.Series(seq, dtype="object")
 
     # Supprime vrais NaN
