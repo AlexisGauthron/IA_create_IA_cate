@@ -2,6 +2,8 @@
 Composant de chat réutilisable pour l'agent métier.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum

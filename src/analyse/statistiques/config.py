@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # src/feature_analysis/config.py
 from dataclasses import dataclass
 

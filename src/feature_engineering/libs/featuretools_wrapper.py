@@ -1,5 +1,6 @@
-# featuretools_wrapper.py
+from __future__ import annotations
 
+# featuretools_wrapper.py
 import featuretools as ft
 import pandas as pd
 

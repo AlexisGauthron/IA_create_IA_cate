@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 from pathlib import Path
 
@@ -157,9 +159,6 @@ def to_csv(
         lineterminator="\n",
     )
     return p
-
-
-import pandas as pd
 
 
 def to_dataframe(

@@ -4,6 +4,8 @@ Permet de lancer le Feature Engineering dans un thread séparé
 pour que Streamlit puisse afficher la progression en temps réel.
 """
 
+from __future__ import annotations
+
 import threading
 from pathlib import Path
 from typing import Any

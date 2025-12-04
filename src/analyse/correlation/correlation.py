@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 # ============================================================
 # FeatureCorrelationAnalyzer — Version Ultra Complète
 # ============================================================
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -280,9 +281,6 @@ def use_all(df, target_col, task):
     # analyzer.plot_multi_heatmap()
 
     return scores
-
-
-import pandas as pd
 
 
 def get_top_features(corr_df, n=20, penalize_ids=True, id_threshold=0.9, id_factor=0.1):

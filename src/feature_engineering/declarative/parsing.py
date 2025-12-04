@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # parsing.py
 import json
 from dataclasses import dataclass, field

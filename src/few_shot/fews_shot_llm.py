@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # app.py
 import json
 import re

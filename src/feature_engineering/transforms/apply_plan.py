@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 def apply_llm_feature_plan(df, feature_plan, colonne_vise):
     """
     Applique un plan de feature engineering généré par LLM.

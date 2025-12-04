@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # src/feature_analysis/printing.py
 from typing import Any
 

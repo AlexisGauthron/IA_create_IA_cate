@@ -2,6 +2,8 @@
 Wrapper pour TPOT AutoML.
 """
 
+from __future__ import annotations
+
 import joblib
 from sklearn.metrics import accuracy_score, f1_score
 from tpot import TPOTClassifier

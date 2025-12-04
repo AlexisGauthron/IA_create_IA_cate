@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 def _build_system_content(stats_json: str) -> str:
     system_content = f"""
         Tu es un data scientist senior chargé de FORMULER LES BONNES QUESTIONS MÉTIER

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # datetime_transforms.py
 from src.features_engineering.transformation_fe.registry import register
 

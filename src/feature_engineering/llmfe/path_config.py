@@ -4,6 +4,8 @@ Gestion centralisée des chemins et fichiers pour LLMFE.
 Tous les fichiers générés sont organisés dans un dossier unique par projet.
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -69,7 +71,7 @@ class LLMFEPathConfig:
 
         self._initialized = True
 
-    def create_directories(self) -> "LLMFEPathConfig":
+    def create_directories(self) -> LLMFEPathConfig:
         """Crée tous les dossiers nécessaires."""
         directories = [
             self.project_dir,
@@ -293,7 +295,7 @@ class LLMFEPathConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, str]) -> "LLMFEPathConfig":
+    def from_dict(cls, data: dict[str, str]) -> LLMFEPathConfig:
         """Crée une instance depuis un dictionnaire."""
         return cls(
             project_name=data["project_name"],

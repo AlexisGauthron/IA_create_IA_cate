@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # src/categorisation_echantillion/embeddings_proto.py
 import multiprocessing
 import os

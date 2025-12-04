@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # src/feature_analysis/leakage.py
 from collections.abc import Sequence
 from typing import Any

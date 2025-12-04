@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pandas as pd
 
 MISSING_TOKENS = {"", "nan", "none", "null", "na", "n/a", "-", "--"}

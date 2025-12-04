@@ -3,6 +3,8 @@ Moniteur de progression pour le Feature Engineering.
 Lit les fichiers JSON générés par LLMFE pour afficher la progression en temps réel.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

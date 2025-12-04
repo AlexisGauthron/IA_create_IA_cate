@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 CUSTOM_CSS = """
 <style>
 /* --- Thème de fond --- */

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # categorical_transforms.py
 import pandas as pd
 

@@ -58,6 +58,10 @@ ignore = [
     "N803",   # Argument name should be lowercase (pour X, y en ML)
     "N816",   # Variable in global scope should not be mixedCase
     "N999",   # Invalid module name
+    # Règles UP désactivées pour compatibilité Python 3.9 (Streamlit utilise Python système)
+    "UP006",  # list[X] au lieu de List[X] - incompatible Python < 3.9
+    "UP007",  # X | Y au lieu de Union[X, Y] - incompatible Python < 3.10
+    "UP035",  # Imports dépréciés (typing.List -> list) - incompatible Python < 3.9
     "UP038",  # isinstance avec tuple (plus lisible que X | Y)
     "B006",   # Mutable default argument (parfois voulu)
     "B007",   # Unused loop control variable

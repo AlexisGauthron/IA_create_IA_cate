@@ -2,6 +2,8 @@
 Wrapper pour FLAML AutoML.
 """
 
+from __future__ import annotations
+
 import joblib
 from flaml import AutoML
 from sklearn.metrics import f1_score

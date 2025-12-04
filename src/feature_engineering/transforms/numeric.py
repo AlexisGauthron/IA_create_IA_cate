@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # numeric_transforms.py
 import numpy as np
 import pandas as pd

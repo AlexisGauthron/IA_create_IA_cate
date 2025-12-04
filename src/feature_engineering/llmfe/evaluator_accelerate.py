@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 # This file aims to accelerate the original evaluate logic using 'numba' package.
 # You should install numba package in your Python environment or the later evaluation will fail.
-
 import ast
 
 

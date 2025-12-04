@@ -2,6 +2,8 @@
 Wrapper pour AutoGluon.
 """
 
+from __future__ import annotations
+
 import pandas as pd
 from autogluon.tabular import TabularPredictor
 from sklearn.metrics import f1_score

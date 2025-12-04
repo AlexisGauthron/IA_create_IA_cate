@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Composant de visualisation pour LLMFE (Feature Engineering).
 Affiche la progression en temps réel et les résultats finaux.

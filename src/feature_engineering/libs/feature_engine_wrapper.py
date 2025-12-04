@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 # src/features_engineering/lib_existante/feature_engine.py
 # VERSION FINALE – ZÉRO ERREUR – feature-engine 1.9.3
-
 import warnings
 
 import numpy as np
