@@ -99,6 +99,10 @@ def init_session_state():
         # Autres configs
         "is_regression": False,
         "max_fe_samples": 10,
+        # Configuration évaluation LLMFE (multi-modèle)
+        "eval_metric": "auto",
+        "eval_models": ["xgboost"],
+        "eval_aggregation": "mean",
     }
 
     for key, value in defaults.items():
@@ -389,6 +393,49 @@ def render_config_step():
                 help="Plus d'itérations = meilleurs résultats mais plus long",
             )
             st.session_state.max_fe_samples = max_samples
+
+            # Configuration évaluation multi-modèle
+            st.markdown("#### Évaluation LLMFE")
+
+            # Métrique
+            metric_options = ["auto", "f1", "accuracy", "auc", "precision", "recall"]
+            if is_regression:
+                metric_options = ["auto", "rmse", "mae", "r2", "mse", "mape"]
+
+            st.session_state.eval_metric = st.selectbox(
+                "Métrique d'évaluation",
+                metric_options,
+                index=metric_options.index(st.session_state.eval_metric)
+                if st.session_state.eval_metric in metric_options
+                else 0,
+                help="auto = f1 (classification) ou rmse (régression)",
+            )
+
+            # Modèles d'évaluation
+            eval_models_options = [
+                "xgboost",
+                "lightgbm",
+                "randomforest",
+                "decisiontree",
+                "logistic",
+            ]
+            st.session_state.eval_models = st.multiselect(
+                "Modèles d'évaluation",
+                eval_models_options,
+                default=st.session_state.eval_models,
+                help="Plusieurs modèles = évaluation plus robuste",
+            )
+            # Assurer au moins un modèle
+            if not st.session_state.eval_models:
+                st.session_state.eval_models = ["xgboost"]
+
+            # Agrégation
+            st.session_state.eval_aggregation = st.selectbox(
+                "Agrégation multi-modèle",
+                ["mean", "min", "max", "median"],
+                index=["mean", "min", "max", "median"].index(st.session_state.eval_aggregation),
+                help="Comment combiner les scores de plusieurs modèles",
+            )
 
     # Navigation
     col1, col2 = st.columns(2)
@@ -995,6 +1042,10 @@ def run_feature_engineering():
             max_samples=max_samples,
             api_model=st.session_state.fe_model,
             use_api=(st.session_state.fe_provider == "openai"),
+            # Paramètres d'évaluation multi-modèle
+            eval_metric=st.session_state.eval_metric,
+            eval_models=st.session_state.eval_models,
+            eval_aggregation=st.session_state.eval_aggregation,
         )
 
         samples_dir = async_runner.get_samples_dir()

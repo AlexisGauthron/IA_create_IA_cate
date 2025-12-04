@@ -1,7 +1,11 @@
 # llmfe_runner.py
 """
 Point d'entrée simplifié pour LLMFE.
-Utilise FeatureEngineeringPathConfig pour une architecture simplifiée.
+
+Ce module fournit une interface simple pour exécuter LLMFE avec :
+- Support multi-modèle via src/models/ (XGBoost, LightGBM, RandomForest, etc.)
+- Configuration flexible des modèles d'évaluation
+- Intégration avec FeatureEngineeringPathConfig
 """
 
 from __future__ import annotations
@@ -12,6 +16,7 @@ import pandas as pd
 
 from src.feature_engineering.llmfe import config as config_lib
 from src.feature_engineering.llmfe import evaluator, pipeline, sampler
+from src.feature_engineering.llmfe.config import EvaluationConfig
 from src.feature_engineering.llmfe.feature_formatter import FeatureFormat
 from src.feature_engineering.llmfe.feature_insights import FeatureInsights
 from src.feature_engineering.path_config import FeatureEngineeringPathConfig
@@ -74,6 +79,11 @@ class LLMFERunner:
         feature_insights: FeatureInsights | None = None,
         feature_format: FeatureFormat = FeatureFormat.BASIC,
         analyse_path: str | None = None,
+        # NOUVEAU : Options d'évaluation multi-modèle
+        eval_config: EvaluationConfig | None = None,
+        eval_models: list[str] | None = None,
+        eval_aggregation: str = "mean",
+        eval_metric: str = "auto",
     ) -> dict[str, Any]:
         """
         Exécute LLMFE sur le dataset fourni.
@@ -94,10 +104,38 @@ class LLMFERunner:
             feature_insights: FeatureInsights pré-calculés (optionnel)
             feature_format: Format des features (BASIC, TAGS, HIERARCHICAL)
             analyse_path: Chemin vers le JSON d'analyse existant (optionnel)
+            eval_config: Configuration d'évaluation complète (prioritaire)
+            eval_models: Liste des modèles d'évaluation (ex: ['xgboost', 'lightgbm'])
+            eval_aggregation: Stratégie d'agrégation ('mean', 'min', 'max')
+            eval_metric: Métrique d'évaluation ('auto', 'f1', 'accuracy', 'auc', 'rmse', etc.)
+                - 'auto': f1 pour classification, rmse pour régression
+                - Classification: 'accuracy', 'f1', 'f1_macro', 'f1_micro', 'precision', 'recall', 'auc', 'logloss'
+                - Régression: 'rmse', 'mse', 'mae', 'r2', 'mape'
 
         Returns:
             Dictionnaire avec les résultats et chemins
+
+        Example:
+            >>> # Évaluation legacy (XGBoost seul)
+            >>> result = runner.run(df, target_col="target")
+            >>>
+            >>> # Évaluation multi-modèle (recommandé)
+            >>> result = runner.run(
+            ...     df, target_col="target",
+            ...     eval_models=["xgboost", "lightgbm", "randomforest"],
+            ...     eval_aggregation="mean"
+            ... )
         """
+        # Construire la configuration d'évaluation
+        if eval_config is None:
+            if eval_models is not None:
+                eval_config = EvaluationConfig(
+                    model_names=tuple(eval_models),
+                    aggregation=eval_aggregation,
+                    metric=eval_metric,
+                )
+            else:
+                eval_config = EvaluationConfig(metric=eval_metric)
         # 1. Créer la configuration des chemins si pas déjà fournie
         if self.path_config is None:
             self.path_config = FeatureEngineeringPathConfig(
@@ -112,13 +150,16 @@ class LLMFERunner:
         if task_description is None:
             task_description = f"Predict '{target_col}' from the given features."
 
-        # 3. Générer et sauvegarder la spec
+        # 3. Générer et sauvegarder la spec avec configuration multi-modèle
         spec_content = self._generate_spec(
             task_description=task_description,
             is_regression=is_regression,
+            eval_config=eval_config,
         )
         spec_path = self.path_config.save_spec(spec_content)
         print(f"✅ Spec générée: {spec_path}")
+        print(f"   Modèles d'évaluation: {eval_config.get_model_names()}")
+        print(f"   Métrique: {eval_config.metric}")
 
         # 4. Préparer les données
         X = df_train.drop(columns=[target_col])
@@ -175,6 +216,7 @@ class LLMFERunner:
         )
 
         config = config_lib.Config(
+            evaluation=eval_config,  # NOUVEAU: configuration d'évaluation
             use_api=use_api,
             api_model=api_model,
             num_samplers=num_samplers,
@@ -239,21 +281,37 @@ class LLMFERunner:
 ╚══════════════════════════════════════════════════════════════╝
 """)
 
-    def _generate_spec(self, task_description: str, is_regression: bool) -> str:
-        """Génère une spec dynamiquement selon le type de problème."""
+    def _generate_spec(
+        self,
+        task_description: str,
+        is_regression: bool,
+        eval_config: EvaluationConfig | None = None,
+    ) -> str:
+        """
+        Génère une spec dynamiquement selon le type de problème.
 
-        if is_regression:
-            model = "xgb.XGBRegressor"
-            metric_import = "from sklearn.metrics import mean_squared_error"
-            score_calc = "score = -1 * mean_squared_error(y_test, y_pred, squared=False)"
-            y_transform = "y = outputs"
-            kfold = "kf = KFold(n_splits=4, shuffle=True, random_state=42)"
-        else:
-            model = "xgb.XGBClassifier"
-            metric_import = "from sklearn.metrics import accuracy_score"
-            score_calc = "score = accuracy_score(y_test, y_pred)"
-            y_transform = "y = label_encoder.fit_transform(outputs)"
-            kfold = "kf = StratifiedKFold(n_splits=4, shuffle=True, random_state=42)"
+        NOUVEAU: Utilise src/models/ via model_evaluator.py pour l'évaluation
+        multi-modèle au lieu de XGBoost codé en dur.
+
+        Args:
+            task_description: Description de la tâche
+            is_regression: True pour régression
+            eval_config: Configuration d'évaluation (modèles, agrégation, etc.)
+
+        Returns:
+            Contenu de la spec
+        """
+        if eval_config is None:
+            eval_config = EvaluationConfig()
+
+        # Extraire la configuration
+        model_names = eval_config.get_model_names()
+        n_folds = eval_config.n_folds
+        metric = eval_config.metric
+        aggregation = eval_config.aggregation
+
+        # Convertir la liste en format Python pour la spec
+        model_names_str = str(model_names)
 
         return f'''"""
 [PREFIX]
@@ -274,41 +332,52 @@ class LLMFERunner:
 
 @evaluate.run
 def evaluate(data: dict):
-    """Evaluate the feature transformations on data observations."""
-    from sklearn import preprocessing
-    from sklearn.model_selection import StratifiedKFold, KFold
-    {metric_import}
+    """
+    Evaluate the feature transformations using multi-model evaluation.
+
+    Uses src/models/ for model-agnostic evaluation instead of hardcoded XGBoost.
+    This helps avoid overfitting features to a single algorithm.
+    """
+    from src.feature_engineering.llmfe.model_evaluator import evaluate_features
     from src.feature_engineering.llmfe.preprocessing import preprocess_datasets
-    import xgboost as xgb
+    from sklearn import preprocessing
     import numpy as np
 
-    label_encoder = preprocessing.LabelEncoder()
-    inputs, outputs, is_cat, is_regression = data['inputs'], data['outputs'], data['is_cat'], data['is_regression']
+    # Extract data
+    inputs = data['inputs']
+    outputs = data['outputs']
+    is_regression = data['is_regression']
+
+    # Apply feature transformations
     X = modify_features(inputs)
-    {y_transform}
+
+    # Prepare target
+    if is_regression:
+        y = np.asarray(outputs, dtype=float)
+    else:
+        label_encoder = preprocessing.LabelEncoder()
+        y = label_encoder.fit_transform(outputs)
 
     # Encode categorical string columns
     for col in X.columns:
         if X[col].dtype == 'string' or X[col].dtype == 'object':
             X[col] = label_encoder.fit_transform(X[col].astype(str))
 
-    {kfold}
-    scores = []
+    # Preprocess features (handle NaN, inf, etc.)
+    X_processed, _ = preprocess_datasets(X, X.copy(), None)
 
-    # 4-Fold Cross-Validation
-    for train_idx, test_idx in kf.split(X, y):
-        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-        y_train, y_test = y[train_idx], y[test_idx]
+    # Multi-model evaluation using src/models/
+    score = evaluate_features(
+        X=X_processed,
+        y=y,
+        is_regression=is_regression,
+        model_names={model_names_str},
+        n_folds={n_folds},
+        metric="{metric}",
+        aggregation="{aggregation}",
+    )
 
-        X_train_new, X_test_new = preprocess_datasets(X_train, X_test, None)
-
-        model = {model}(random_state=42)
-        model.fit(X_train_new, y_train)
-        y_pred = model.predict(X_test_new)
-        {score_calc}
-        scores.append(score)
-
-    return np.mean(scores), inputs, outputs
+    return score, inputs, outputs
 
 
 @equation.evolve
@@ -332,6 +401,9 @@ def run_llmfe(
     is_regression: bool = False,
     max_samples: int = 20,
     output_root: str | None = None,
+    eval_models: list[str] | None = None,
+    eval_aggregation: str = "mean",
+    eval_metric: str = "auto",
     **kwargs,
 ) -> dict[str, Any]:
     """
@@ -344,21 +416,30 @@ def run_llmfe(
         is_regression: True si régression
         max_samples: Nombre max d'itérations
         output_root: Racine de sortie (utilise Settings si None)
+        eval_models: Liste des modèles d'évaluation (défaut: ['xgboost'])
+        eval_aggregation: Stratégie d'agrégation ('mean', 'min', 'max')
+        eval_metric: Métrique d'évaluation ('auto', 'f1', 'accuracy', 'auc', 'rmse', etc.)
         **kwargs: Arguments additionnels passés à LLMFERunner.run()
 
     Returns:
         Dictionnaire avec les résultats
 
-    Exemple:
-    ```python
-    result = run_llmfe(
-        project_name="MonProjet",
-        df_train=df,
-        target_col="target",
-        is_regression=False,
-        max_samples=20
-    )
-    ```
+    Example:
+        >>> # Évaluation legacy (XGBoost seul)
+        >>> result = run_llmfe(
+        ...     project_name="MonProjet",
+        ...     df_train=df,
+        ...     target_col="target",
+        ... )
+        >>>
+        >>> # Évaluation multi-modèle (recommandé)
+        >>> result = run_llmfe(
+        ...     project_name="MonProjet",
+        ...     df_train=df,
+        ...     target_col="target",
+        ...     eval_models=["xgboost", "lightgbm", "randomforest"],
+        ...     eval_aggregation="mean",
+        ... )
     """
     runner = LLMFERunner(
         project_name=project_name,
@@ -370,5 +451,8 @@ def run_llmfe(
         target_col=target_col,
         is_regression=is_regression,
         max_samples=max_samples,
+        eval_models=eval_models,
+        eval_aggregation=eval_aggregation,
+        eval_metric=eval_metric,
         **kwargs,
     )

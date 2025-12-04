@@ -503,6 +503,41 @@ Documentation complète: docs/cli_reference.md
         default=60,
         help="Budget temps AutoML en secondes (défaut: 60)",
     )
+    override_group.add_argument(
+        "--eval-metric",
+        type=str,
+        default="auto",
+        choices=[
+            "auto",
+            "f1",
+            "accuracy",
+            "auc",
+            "logloss",
+            "precision",
+            "recall",
+            "f1_macro",
+            "f1_micro",
+            "rmse",
+            "mse",
+            "mae",
+            "r2",
+            "mape",
+        ],
+        help="Métrique d'évaluation LLMFE (défaut: auto = f1/rmse selon le type)",
+    )
+    override_group.add_argument(
+        "--eval-models",
+        type=str,
+        default="xgboost",
+        help="Modèles d'évaluation LLMFE séparés par virgule (ex: xgboost,lightgbm,randomforest)",
+    )
+    override_group.add_argument(
+        "--eval-aggregation",
+        type=str,
+        default="mean",
+        choices=["mean", "min", "max", "median"],
+        help="Stratégie d'agrégation multi-modèle LLMFE (défaut: mean)",
+    )
 
     # =========================================================================
     # 6. Configuration AutoML
@@ -684,6 +719,11 @@ def build_kwargs_from_args(args) -> dict:
         kwargs["override_max_samples"] = args.override_max_samples
     if args.override_time_budget:
         kwargs["override_time_budget"] = args.override_time_budget
+
+    # Évaluation LLMFE (multi-modèle)
+    kwargs["eval_metric"] = args.eval_metric
+    kwargs["eval_models"] = [m.strip() for m in args.eval_models.split(",")]
+    kwargs["eval_aggregation"] = args.eval_aggregation
 
     # AutoML frameworks
     kwargs["automl_frameworks"] = parse_list(args.automl_frameworks)

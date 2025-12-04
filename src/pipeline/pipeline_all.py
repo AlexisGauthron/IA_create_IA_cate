@@ -378,6 +378,10 @@ class FullPipeline:
         correlation_methods: list | None = None,
         # Config LLMFE
         llmfe_model: str = "gpt-3.5-turbo",
+        # Config évaluation LLMFE (multi-modèle)
+        eval_metric: str = "auto",
+        eval_models: list | None = None,
+        eval_aggregation: str = "mean",
         # Config AutoML
         automl_frameworks: list | None = None,
     ):
@@ -424,6 +428,11 @@ class FullPipeline:
 
         # Config LLMFE
         self.llmfe_model = llmfe_model
+
+        # Config évaluation LLMFE (multi-modèle)
+        self.eval_metric = eval_metric
+        self.eval_models = eval_models or ["xgboost"]
+        self.eval_aggregation = eval_aggregation
 
         # Config AutoML
         self.automl_frameworks = automl_frameworks or ["flaml", "autogluon"]
@@ -831,6 +840,10 @@ class FullPipeline:
             use_api=True,
             api_model=self.llmfe_model,
             feature_format=feature_format,
+            # Paramètres d'évaluation multi-modèle
+            eval_metric=self.eval_metric,
+            eval_models=self.eval_models,
+            eval_aggregation=self.eval_aggregation,
         )
 
         self.result.feature_engineering_result = result
