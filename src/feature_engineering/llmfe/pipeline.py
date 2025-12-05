@@ -148,14 +148,40 @@ def main(
         for _ in range(config.num_samplers)
     ]
 
-    print("SAMPLERRS :", samplers)
+    # Afficher le prompt initial avant la boucle
+    print("\n" + "=" * 80)
+    print("  PROMPT INITIAL ENVOYÉ AU LLM")
+    print("=" * 80)
+    initial_prompt = database.get_prompt()
+    print(initial_prompt.code)
+    print("=" * 80 + "\n")
+
     # This loop can be executed in parallel on remote sampler machines. As each
     # sampler enters an infinite loop, without parallelization only the first
     # sampler will do any work.
     for s in samplers:
-        print(f"SAMPLE : {s}")
         s.sample(profiler=profiler)
 
     # Afficher le récapitulatif de tous les modèles à la fin
     if profiler is not None:
         profiler.print_summary(top_n=10)
+
+    # Retourner les résultats pour la collecte de métriques
+    results = {
+        "scores": [],
+        "n_features_per_iteration": [],
+        "n_features_generated": 0,
+        "best_score": 0.0,
+        "final_score": 0.0,
+        "n_iterations": 0,
+    }
+
+    if profiler is not None:
+        results["scores"] = profiler.get_all_scores()
+        results["n_features_per_iteration"] = profiler.get_feature_counts()
+        results["n_features_generated"] = profiler.get_total_features_generated()
+        results["best_score"] = profiler.get_best_score()
+        results["final_score"] = results["scores"][-1] if results["scores"] else 0.0
+        results["n_iterations"] = len(results["scores"])
+
+    return results

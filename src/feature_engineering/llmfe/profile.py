@@ -349,6 +349,102 @@ class Profiler:
         # Appliquer modify_features et sauvegarder le dataset transformé
         self._save_transformed_dataset()
 
+    # =========================================================
+    # MÉTHODES POUR LA COLLECTE DE MÉTRIQUES (Comparison Module)
+    # =========================================================
+
+    def get_all_scores(self) -> list[float]:
+        """
+        Retourne tous les scores dans l'ordre chronologique.
+
+        Returns:
+            Liste des scores de chaque itération valide
+        """
+        scores = []
+        for sample_order in sorted(self._all_sampled_functions.keys()):
+            func = self._all_sampled_functions[sample_order]
+            if func.score is not None:
+                scores.append(func.score)
+        return scores
+
+    def get_feature_counts(self) -> list[int]:
+        """
+        Retourne le nombre de features générées par itération.
+
+        Returns:
+            Liste du nombre de features par itération
+        """
+        counts = []
+        for sample_order in sorted(self._all_sampled_functions.keys()):
+            func = self._all_sampled_functions[sample_order]
+            if func.score is not None:
+                # Compter les lignes de code comme proxy du nombre de features
+                func_str = str(func).strip()
+                # Chercher les lignes qui créent des colonnes (df_output['...'] = ...)
+                import re
+
+                feature_assignments = re.findall(r"df_output\[.*\]\s*=", func_str)
+                counts.append(len(feature_assignments))
+        return counts
+
+    def get_total_features_generated(self) -> int:
+        """
+        Retourne le nombre total de features uniques générées.
+
+        Returns:
+            Nombre total de features
+        """
+        if self._evolution_tracker is not None:
+            summary = self._evolution_tracker.get_summary()
+            return summary.get("n_features_created", 0)
+        # Fallback: compter depuis le meilleur code
+        if self._cur_best_program_str:
+            import re
+
+            feature_assignments = re.findall(r"df_output\[.*\]\s*=", self._cur_best_program_str)
+            return len(feature_assignments)
+        return 0
+
+    def get_best_score(self) -> float:
+        """
+        Retourne le meilleur score obtenu.
+
+        Returns:
+            Meilleur score
+        """
+        return self._cur_best_program_score if self._cur_best_program_score > -99999999 else 0.0
+
+    def get_convergence_iteration(self) -> int | None:
+        """
+        Retourne l'itération où le meilleur score a été atteint.
+
+        Returns:
+            Numéro d'itération ou None
+        """
+        return self._cur_best_program_sample_order
+
+    def get_metrics_summary(self) -> dict:
+        """
+        Retourne un résumé des métriques pour le module de comparaison.
+
+        Returns:
+            Dictionnaire avec toutes les métriques
+        """
+        scores = self.get_all_scores()
+        return {
+            "scores": scores,
+            "n_features_per_iteration": self.get_feature_counts(),
+            "n_features_generated": self.get_total_features_generated(),
+            "best_score": self.get_best_score(),
+            "final_score": scores[-1] if scores else 0.0,
+            "n_iterations": len(scores),
+            "convergence_iteration": self.get_convergence_iteration(),
+            "n_valid_samples": self._evaluate_success_program_num,
+            "n_failed_samples": self._evaluate_failed_program_num,
+            "total_sample_time": self._tot_sample_time,
+            "total_evaluate_time": self._tot_evaluate_time,
+        }
+
     def _save_transformed_dataset(self):
         """Applique la meilleure fonction modify_features et sauvegarde le dataset."""
         if not self._cur_best_program_str:

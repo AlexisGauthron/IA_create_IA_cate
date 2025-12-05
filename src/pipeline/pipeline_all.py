@@ -737,12 +737,33 @@ class FullPipeline:
                     full_report["context"]["business_description"] = llm_context[
                         "business_description"
                     ].get("value")
-                if llm_context.get("final_metric"):
-                    full_report["context"]["final_metric"] = llm_context["final_metric"].get(
-                        "value"
-                    )
-                if llm_context.get("final_metric_reason"):
-                    full_report["context"]["final_metric_reason"] = llm_context[
+
+                # NOUVEAU FORMAT : eval_metrics (liste de métriques avec poids)
+                if llm_context.get("eval_metrics"):
+                    eval_metrics_data = llm_context["eval_metrics"].get("value", [])
+                    full_report["context"]["eval_metrics"] = eval_metrics_data
+                    # Extraire aussi la métrique principale (celle avec le poids le plus élevé)
+                    # pour rétrocompatibilité avec final_metric
+                    if eval_metrics_data:
+                        main_metric = max(eval_metrics_data, key=lambda m: m.get("weight", 0))
+                        full_report["context"]["final_metric"] = main_metric.get("name")
+
+                # ANCIEN FORMAT : final_metric (rétrocompatibilité)
+                elif llm_context.get("final_metric"):
+                    final_metric = llm_context["final_metric"].get("value")
+                    full_report["context"]["final_metric"] = final_metric
+                    # Convertir en nouveau format eval_metrics pour uniformité
+                    full_report["context"]["eval_metrics"] = [
+                        {"name": final_metric, "weight": 1.0, "reason": "Métrique unique"}
+                    ]
+
+                # Raison des métriques
+                if llm_context.get("eval_metrics_reason"):
+                    full_report["context"]["eval_metrics_reason"] = llm_context[
+                        "eval_metrics_reason"
+                    ].get("value")
+                elif llm_context.get("final_metric_reason"):
+                    full_report["context"]["eval_metrics_reason"] = llm_context[
                         "final_metric_reason"
                     ].get("value")
 
@@ -756,10 +777,20 @@ class FullPipeline:
                                 "value"
                             )
 
+                # Affichage
                 print(
                     f"    - business_description: {full_report['context'].get('business_description', 'N/A')[:50]}..."
                 )
-                print(f"    - final_metric: {full_report['context'].get('final_metric', 'N/A')}")
+                eval_metrics = full_report["context"].get("eval_metrics", [])
+                if eval_metrics:
+                    metrics_str = ", ".join(
+                        f"{m['name']}={m.get('weight', 1.0)}" for m in eval_metrics
+                    )
+                    print(f"    - eval_metrics: [{metrics_str}]")
+                else:
+                    print(
+                        f"    - final_metric: {full_report['context'].get('final_metric', 'N/A')}"
+                    )
                 print(f"    - Features enrichies: {len(llm_features)}")
 
                 # Sauvegarder le rapport full SEULEMENT si Mode Final trouvé
@@ -774,6 +805,44 @@ class FullPipeline:
             import traceback
 
             traceback.print_exc()
+
+    def _normalize_metric_name(self, metric: str) -> str:
+        """
+        Normalise le nom d'une métrique vers le format attendu par LLMFE.
+
+        Args:
+            metric: Nom de métrique brut (ex: "ROC_AUC", "f1-macro", etc.)
+
+        Returns:
+            Nom normalisé (ex: "auc", "f1_macro", etc.)
+        """
+        if not metric:
+            return "auto"
+
+        metric = metric.lower().strip()
+
+        # Mapping des alias vers les noms standardisés
+        metric_aliases = {
+            # AUC variants
+            "roc_auc": "auc",
+            "rocauc": "auc",
+            "roc-auc": "auc",
+            "auroc": "auc",
+            # F1 variants
+            "f1-score": "f1",
+            "f1score": "f1",
+            "f1-macro": "f1_macro",
+            "f1-micro": "f1_micro",
+            "f1_weighted": "f1",
+            # Régression
+            "mean_squared_error": "mse",
+            "root_mean_squared_error": "rmse",
+            "mean_absolute_error": "mae",
+            "r_squared": "r2",
+            "r-squared": "r2",
+        }
+
+        return metric_aliases.get(metric, metric)
 
     def _load_detected_params(self, json_path: Path) -> None:
         """Charge les paramètres depuis le JSON d'analyse."""
@@ -817,6 +886,7 @@ class FullPipeline:
         print("  ÉTAPE 2: FEATURE ENGINEERING (LLMFE)")
         print("=" * 60)
 
+        from src.analyse.path_config import AnalysePathConfig
         from src.feature_engineering.llmfe.feature_formatter import FeatureFormat
         from src.feature_engineering.llmfe.llmfe_runner import LLMFERunner
         from src.feature_engineering.path_config import FeatureEngineeringPathConfig
@@ -843,6 +913,91 @@ class FullPipeline:
         print(f"  Max samples:    {params.max_samples} (auto-détecté)")
         print(f"  Modèle LLM:     {self.llmfe_model}")
 
+        # =====================================================================
+        # NOUVEAU : Charger les descriptions de l'agent LLM business si disponibles
+        # =====================================================================
+        analyse_path_config = AnalysePathConfig(
+            project_name=self.project_name,
+            base_dir=self.output_dir_base,
+        )
+
+        analyse_path = None
+        task_description = None
+        llm_eval_metrics = None  # Métriques pondérées recommandées par le LLM business
+
+        # Vérifier si le rapport enrichi par le LLM business existe
+        if analyse_path_config.full_report_path.exists():
+            analyse_path = str(analyse_path_config.full_report_path)
+            print(f"\n  📚 Rapport LLM business trouvé: {analyse_path}")
+
+            # Charger les descriptions du LLM
+            try:
+                with open(analyse_path_config.full_report_path, encoding="utf-8") as f:
+                    full_report = json.load(f)
+
+                # Extraire la description métier
+                context = full_report.get("context", {})
+                business_desc = context.get("business_description")
+                if business_desc:
+                    task_description = business_desc
+                    print(f"  ✅ Description métier chargée: {task_description[:60]}...")
+
+                # NOUVEAU : Extraire les métriques pondérées (eval_metrics)
+                eval_metrics = context.get("eval_metrics", [])
+                if eval_metrics:
+                    # Normaliser les noms des métriques
+                    llm_eval_metrics = []
+                    for m in eval_metrics:
+                        normalized_name = self._normalize_metric_name(m.get("name", ""))
+                        if normalized_name and normalized_name != "auto":
+                            llm_eval_metrics.append(
+                                {
+                                    "name": normalized_name,
+                                    "weight": m.get("weight", 1.0),
+                                    "reason": m.get("reason", ""),
+                                }
+                            )
+
+                    if llm_eval_metrics:
+                        metrics_str = ", ".join(
+                            f"{m['name']}={m['weight']}" for m in llm_eval_metrics
+                        )
+                        print(f"  ✅ Métriques LLM pondérées: [{metrics_str}]")
+
+                        metric_reason = context.get("eval_metrics_reason", "")
+                        if metric_reason:
+                            print(f"     Raison: {metric_reason[:80]}...")
+
+                # RÉTROCOMPATIBILITÉ : Si pas d'eval_metrics, chercher final_metric
+                if not llm_eval_metrics:
+                    final_metric = context.get("final_metric")
+                    if final_metric:
+                        normalized = self._normalize_metric_name(final_metric)
+                        llm_eval_metrics = [{"name": normalized, "weight": 1.0}]
+                        print(f"  ✅ Métrique LLM (unique): {normalized}")
+
+                # Compter les features avec descriptions
+                features_with_desc = sum(
+                    1 for f in full_report.get("features", []) if f.get("feature_description")
+                )
+                if features_with_desc > 0:
+                    print(f"  ✅ {features_with_desc} features avec descriptions LLM")
+
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"  ⚠️ Erreur lecture rapport LLM: {e}")
+
+        elif analyse_path_config.stats_report_path.exists():
+            # Fallback sur le rapport stats (sans descriptions LLM)
+            analyse_path = str(analyse_path_config.stats_report_path)
+            print(f"\n  📊 Rapport stats utilisé: {analyse_path}")
+            print("  ℹ️  Pas de descriptions LLM (utilisez --with-llm pour les activer)")
+
+        # Fallback pour task_description si non définie
+        if not task_description:
+            task_description = f"Predict '{self.target_col}' from the given features."
+
+        # =====================================================================
+
         # Créer et lancer le runner
         runner = LLMFERunner(
             project_name=self.project_name,
@@ -851,19 +1006,45 @@ class FullPipeline:
 
         is_regression = params.task_type == "regression"
 
-        result = runner.run(
-            df_train=df_train,
-            target_col=self.target_col,
-            is_regression=is_regression,
-            max_samples=params.max_samples,
-            use_api=True,
-            api_model=self.llmfe_model,
-            feature_format=feature_format,
-            # Paramètres d'évaluation multi-modèle
-            eval_metric=self.eval_metric,
-            eval_models=self.eval_models,
-            eval_aggregation=self.eval_aggregation,
-        )
+        # Déterminer les métriques à utiliser :
+        # 1. Si llm_eval_metrics disponible (du rapport LLM business) → l'utiliser
+        # 2. Sinon utiliser self.eval_metric (défaut ou override CLI)
+        if llm_eval_metrics:
+            print("  📊 Utilisation des métriques LLM pondérées")
+            result = runner.run(
+                df_train=df_train,
+                target_col=self.target_col,
+                is_regression=is_regression,
+                max_samples=params.max_samples,
+                use_api=True,
+                api_model=self.llmfe_model,
+                feature_format=feature_format,
+                # NOUVEAU : Paramètres d'évaluation multi-métrique pondérée
+                eval_metrics_config=llm_eval_metrics,
+                eval_models=self.eval_models,
+                eval_aggregation=self.eval_aggregation,
+                # Descriptions de l'agent LLM business
+                analyse_path=analyse_path,
+                task_description=task_description,
+            )
+        else:
+            # Fallback sur métrique unique
+            result = runner.run(
+                df_train=df_train,
+                target_col=self.target_col,
+                is_regression=is_regression,
+                max_samples=params.max_samples,
+                use_api=True,
+                api_model=self.llmfe_model,
+                feature_format=feature_format,
+                # Paramètres d'évaluation mono-métrique
+                eval_metric=self.eval_metric,
+                eval_models=self.eval_models,
+                eval_aggregation=self.eval_aggregation,
+                # Descriptions de l'agent LLM business
+                analyse_path=analyse_path,
+                task_description=task_description,
+            )
 
         self.result.feature_engineering_result = result
 

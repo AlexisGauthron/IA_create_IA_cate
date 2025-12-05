@@ -72,18 +72,52 @@ def build_system_content() -> str:
 
         Les champs à compléter sont :
         - context.business_description : courte description métier du dataset et de l'objectif global (2–4 phrases).
-        - context.final_metric : nom de la métrique d'évaluation principale la plus adaptée (ex : "f1", "accuracy", "roc_auc", "rmse", "recall", "precision", etc.).
-        - context.final_metric_reason : justification métier du choix de la métrique (1-2 phrases expliquant POURQUOI cette métrique est adaptée au contexte business).
+        - context.eval_metrics : liste de métriques avec leurs poids pour l'évaluation multi-critère.
+          Tu dois définir entre 1 et 3 métriques avec des poids qui totalisent 1.0.
+
+          Format attendu :
+          "eval_metrics": [
+              {"name": "recall", "weight": 0.5, "reason": "Minimiser les cas manqués"},
+              {"name": "precision", "weight": 0.3, "reason": "Limiter les faux positifs"},
+              {"name": "f1", "weight": 0.2, "reason": "Équilibre global"}
+          ]
+
+          Métriques disponibles pour CLASSIFICATION :
+            * "accuracy" : si classes équilibrées et erreurs symétriques
+            * "f1" : équilibre précision/rappel (binaire, moyenne weighted)
+            * "f1_macro" : moyenne non-pondérée des F1 par classe (si toutes les classes sont importantes)
+            * "f1_micro" : F1 global (équivalent à accuracy pour multiclasse)
+            * "recall" : minimiser les faux négatifs (ex: diagnostic médical, fraude)
+            * "precision" : minimiser les faux positifs (ex: spam, recommandations)
+            * "auc" ou "roc_auc" : discrimination globale, insensible au seuil
+            * "logloss" : calibration des probabilités
+          Métriques disponibles pour RÉGRESSION :
+            * "rmse" : erreur quadratique (pénalise les grosses erreurs)
+            * "mae" : erreur absolue (robuste aux outliers)
+            * "r2" : variance expliquée
+            * "mape" : erreur en pourcentage
+
+          Règles pour les poids :
+            * La somme des poids doit être égale à 1.0
+            * Le poids le plus élevé indique la métrique prioritaire
+            * Utilise 1 métrique (poids=1.0) si le cas est simple
+            * Utilise 2-3 métriques si le contexte métier nécessite un compromis
+            * Exemples de pondérations :
+              - Fraude : recall=0.6, precision=0.3, f1=0.1 (priorité au rappel)
+              - Spam : precision=0.5, recall=0.3, f1=0.2 (priorité à la précision)
+              - Équilibré : f1=1.0 (une seule métrique suffit)
+
+        - context.eval_metrics_reason : justification globale du choix des métriques et de leurs poids (2-3 phrases).
         - features[*].feature_description : pour chaque feature dont feature_description est null, une phrase ou deux expliquant
         ce que représente cette colonne dans le métier, et comment elle est utilisée.
 
-        Note importante sur la métrique :
+        Note importante sur les métriques :
         - Le snapshot JSON peut contenir un champ "suggested_metric" qui est une suggestion basée sur des seuils statistiques.
         - Ta mission est de VALIDER ou MODIFIER cette suggestion en fonction du CONTEXTE MÉTIER.
         - Par exemple :
-          * Si la suggestion est "accuracy" mais que le contexte métier implique un coût élevé des faux négatifs (ex: fraude, diagnostic médical), tu dois proposer "recall" ou "f1".
-          * Si la suggestion est "f1" mais que l'équilibre entre précision et rappel n'est pas critique, tu peux valider ou proposer une alternative.
-        - Tu dois TOUJOURS justifier ton choix dans "final_metric_reason".
+          * Si la suggestion est "accuracy" mais que le contexte métier implique un coût élevé des faux négatifs (ex: fraude, diagnostic médical), tu dois proposer recall avec un poids élevé.
+          * Si le contexte nécessite un compromis entre plusieurs objectifs, utilise plusieurs métriques avec des poids appropriés.
+        - Tu dois TOUJOURS justifier ton choix dans "eval_metrics_reason".
 
         Règles de raisonnement :
 
@@ -128,12 +162,15 @@ def build_system_content() -> str:
                     "value": "<ta proposition en texte libre>",
                     "confidence": <score entre 0 et 1>
                 },
-                "final_metric": {
-                    "value": "<nom de la métrique principale, ex: 'f1', 'accuracy', 'recall', 'roc_auc', 'rmse'>",
+                "eval_metrics": {
+                    "value": [
+                        {"name": "<métrique1>", "weight": <poids1>, "reason": "<raison1>"},
+                        {"name": "<métrique2>", "weight": <poids2>, "reason": "<raison2>"}
+                    ],
                     "confidence": <score entre 0 et 1>
                 },
-                "final_metric_reason": {
-                    "value": "<justification métier du choix de la métrique en 1-2 phrases>",
+                "eval_metrics_reason": {
+                    "value": "<justification globale du choix des métriques et poids en 2-3 phrases>",
                     "confidence": <score entre 0 et 1>
                 }
             },

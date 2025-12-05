@@ -11,6 +11,7 @@ from src.models.evaluation.cross_validator import (
     CrossValidator,
     CVResult,
     MultiModelCVResult,
+    WeightedMetricResult,
 )
 from src.models.evaluation.metrics import (
     CLASSIFICATION_METRICS,
@@ -37,4 +38,5 @@ __all__ = [
     "CrossValidator",
     "CVResult",
     "MultiModelCVResult",
+    "WeightedMetricResult",
 ]

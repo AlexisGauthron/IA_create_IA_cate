@@ -8,6 +8,7 @@ Avantages:
 - Évaluation sur plusieurs modèles (évite l'overfitting à un algo)
 - Configuration flexible des modèles
 - Métriques standardisées via src/models/evaluation/
+- Support multi-métrique pondérée (ex: 60% recall + 40% precision)
 
 Example:
     >>> from src.feature_engineering.llmfe.model_evaluator import evaluate_features
@@ -17,6 +18,18 @@ Example:
     ...     model_names=["xgboost", "lightgbm", "randomforest"],
     ...     n_folds=4,
     ...     aggregation="mean"
+    ... )
+    >>>
+    >>> # Multi-métrique pondérée
+    >>> score = evaluate_features_weighted(
+    ...     X, y,
+    ...     is_regression=False,
+    ...     metrics_config=[
+    ...         {"name": "recall", "weight": 0.5},
+    ...         {"name": "precision", "weight": 0.3},
+    ...         {"name": "f1", "weight": 0.2}
+    ...     ],
+    ...     model_names=["xgboost"]
     ... )
 """
 
@@ -30,6 +43,7 @@ from sklearn import preprocessing
 from sklearn.model_selection import KFold, StratifiedKFold
 
 from src.models import CrossValidator, get_model, get_models
+from src.models.evaluation import WeightedMetricResult
 
 
 def evaluate_features(
@@ -222,6 +236,171 @@ def _prepare_target(y: np.ndarray, is_regression: bool) -> np.ndarray:
 # ============================================================================
 # FONCTION LEGACY POUR RÉTROCOMPATIBILITÉ
 # ============================================================================
+
+
+def evaluate_features_weighted(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    is_regression: bool = False,
+    metrics_config: list[dict[str, Any]] | None = None,
+    model_names: list[str] | None = None,
+    n_folds: int = 4,
+    model_aggregation: str = "mean",
+    random_state: int = 42,
+) -> float:
+    """
+    Évalue les features avec plusieurs métriques pondérées.
+
+    Permet d'optimiser un compromis entre plusieurs objectifs,
+    par exemple : maximiser le recall tout en maintenant une bonne precision.
+
+    Args:
+        X: DataFrame des features transformées
+        y: Array des labels/valeurs cibles
+        is_regression: True pour régression, False pour classification
+        metrics_config: Liste des métriques avec poids
+            Format: [{"name": "recall", "weight": 0.5}, {"name": "precision", "weight": 0.3}]
+            La somme des poids doit être 1.0
+            Si None, utilise une métrique par défaut (f1 ou rmse)
+        model_names: Liste des modèles à utiliser (défaut: ["xgboost"])
+        n_folds: Nombre de folds pour la validation croisée
+        model_aggregation: Stratégie d'agrégation multi-modèle ('mean', 'min', 'max')
+        random_state: Graine aléatoire pour reproductibilité
+
+    Returns:
+        Score pondéré agrégé (plus grand = meilleur)
+
+    Example:
+        >>> # Évaluation pour détection de fraude (priorité au recall)
+        >>> score = evaluate_features_weighted(
+        ...     X, y,
+        ...     metrics_config=[
+        ...         {"name": "recall", "weight": 0.6},
+        ...         {"name": "precision", "weight": 0.3},
+        ...         {"name": "f1", "weight": 0.1}
+        ...     ],
+        ...     model_names=["xgboost", "lightgbm"]
+        ... )
+    """
+    # Valeurs par défaut
+    if model_names is None:
+        model_names = ["xgboost"]
+
+    # Si pas de config multi-métrique, utiliser la métrique par défaut
+    if metrics_config is None or len(metrics_config) == 0:
+        default_metric = "rmse" if is_regression else "f1"
+        return evaluate_features(
+            X=X,
+            y=y,
+            is_regression=is_regression,
+            model_names=model_names,
+            n_folds=n_folds,
+            metric=default_metric,
+            aggregation=model_aggregation,
+            random_state=random_state,
+        )
+
+    # Préparer les données
+    X_prepared = _prepare_features(X)
+    y_prepared = _prepare_target(y, is_regression)
+
+    # Créer le CrossValidator
+    cv = CrossValidator(n_folds=n_folds, shuffle=True, random_state=random_state)
+
+    # Évaluation
+    if len(model_names) == 1:
+        # Un seul modèle : évaluation multi-métrique pondérée
+        model = get_model(model_names[0], is_regression=is_regression)
+        result = cv.evaluate_weighted_metrics(model, X_prepared, y_prepared, metrics_config)
+        return result.weighted_score
+    else:
+        # Plusieurs modèles : évaluation combinée (multi-modèle + multi-métrique)
+        models = get_models(model_names, is_regression=is_regression)
+        result = cv.evaluate_multi_model_weighted_metrics(
+            models, X_prepared, y_prepared, metrics_config, model_aggregation
+        )
+        return result["aggregated_score"]
+
+
+def evaluate_features_weighted_detailed(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    is_regression: bool = False,
+    metrics_config: list[dict[str, Any]] | None = None,
+    model_names: list[str] | None = None,
+    n_folds: int = 4,
+    random_state: int = 42,
+) -> dict[str, Any]:
+    """
+    Évalue les features avec métriques pondérées et retourne les détails complets.
+
+    Comme evaluate_features_weighted() mais retourne un dictionnaire détaillé
+    avec les scores par métrique et par modèle.
+
+    Args:
+        X: DataFrame des features
+        y: Labels/valeurs cibles
+        is_regression: True pour régression
+        metrics_config: Configuration des métriques avec poids
+        model_names: Liste des modèles
+        n_folds: Nombre de folds
+        random_state: Graine aléatoire
+
+    Returns:
+        Dictionnaire avec:
+        - 'weighted_score': Score pondéré final
+        - 'scores_by_metric': {metric_name: score}
+        - 'weights': {metric_name: weight}
+        - 'model_scores': {model_name: weighted_score} (si multi-modèle)
+
+    Example:
+        >>> result = evaluate_features_weighted_detailed(
+        ...     X, y,
+        ...     metrics_config=[
+        ...         {"name": "recall", "weight": 0.5},
+        ...         {"name": "precision", "weight": 0.5}
+        ...     ]
+        ... )
+        >>> print(f"Recall: {result['scores_by_metric']['recall']:.4f}")
+        >>> print(f"Precision: {result['scores_by_metric']['precision']:.4f}")
+        >>> print(f"Score pondéré: {result['weighted_score']:.4f}")
+    """
+    if model_names is None:
+        model_names = ["xgboost"]
+
+    if metrics_config is None:
+        default_metric = "rmse" if is_regression else "f1"
+        metrics_config = [{"name": default_metric, "weight": 1.0}]
+
+    # Préparer les données
+    X_prepared = _prepare_features(X)
+    y_prepared = _prepare_target(y, is_regression)
+
+    # Créer le CrossValidator
+    cv = CrossValidator(n_folds=n_folds, shuffle=True, random_state=random_state)
+
+    if len(model_names) == 1:
+        model = get_model(model_names[0], is_regression=is_regression)
+        result = cv.evaluate_weighted_metrics(model, X_prepared, y_prepared, metrics_config)
+        return {
+            "weighted_score": result.weighted_score,
+            "scores_by_metric": result.scores,
+            "weights": result.weights,
+            "model_scores": {model_names[0]: result.weighted_score},
+        }
+    else:
+        models = get_models(model_names, is_regression=is_regression)
+        result = cv.evaluate_multi_model_weighted_metrics(
+            models, X_prepared, y_prepared, metrics_config, "mean"
+        )
+        return {
+            "weighted_score": result["aggregated_score"],
+            "scores_by_metric": result["details"][model_names[0]][
+                "scores"
+            ],  # Premier modèle comme référence
+            "weights": {m["name"]: m["weight"] for m in metrics_config},
+            "model_scores": result["weighted_scores"],
+        }
 
 
 def evaluate_with_xgboost(

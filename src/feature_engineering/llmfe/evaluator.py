@@ -35,6 +35,63 @@ class _FunctionLineVisitor(ast.NodeVisitor):
         return self._function_end_line
 
 
+def _ensure_return_statement(body: str) -> str:
+    """
+    S'assure que le corps de la fonction contient un return df_output.
+
+    Le LLM oublie parfois d'ajouter le return, ce qui cause:
+    'NoneType' object has no attribute 'columns'
+
+    Cette fonction ajoute automatiquement le return si absent.
+    """
+    if not body or not body.strip():
+        return body
+
+    # Vérifier si un return existe déjà
+    lines = body.strip().split("\n")
+    has_return = any(
+        line.strip().startswith("return ")
+        for line in lines
+        if line.strip() and not line.strip().startswith("#")
+    )
+
+    if has_return:
+        return body
+
+    # Chercher le nom de la variable de sortie (df_output, df, output, etc.)
+    # Pattern commun: df_output = df_input.copy() ou output = input.copy()
+    output_var = "df_output"  # défaut
+    for line in lines:
+        stripped = line.strip()
+        # Chercher les patterns: var = xxx.copy() ou var = pd.DataFrame(...)
+        if "= " in stripped and ".copy()" in stripped:
+            potential_var = stripped.split("=")[0].strip()
+            if potential_var and not potential_var.startswith("#"):
+                output_var = potential_var
+                break
+        elif "= pd.DataFrame" in stripped:
+            potential_var = stripped.split("=")[0].strip()
+            if potential_var and not potential_var.startswith("#"):
+                output_var = potential_var
+                break
+
+    # Ajouter le return avec la bonne indentation
+    # Trouver l'indentation de base (première ligne de code non vide, pas import)
+    base_indent = "    "  # défaut: 4 espaces
+    for line in lines:
+        stripped = line.strip()
+        if (
+            stripped
+            and not stripped.startswith("#")
+            and not stripped.startswith("import ")
+            and not stripped.startswith("from ")
+        ):
+            base_indent = line[: len(line) - len(line.lstrip())]
+            break
+
+    return body.rstrip() + f"\n{base_indent}return {output_var}\n\n"
+
+
 def _trim_function_body(generated_code: str) -> str:
     """Extract the body of the generated function, trimming anything after it.
     Please note that the indentation is REQUIRED !!!
@@ -60,7 +117,12 @@ def _trim_function_body(generated_code: str) -> str:
     visitor = _FunctionLineVisitor("fake_function_header")
     visitor.visit(tree)
     body_lines = code.splitlines()[1 : visitor.function_end_line]
-    return "\n".join(body_lines) + "\n\n"
+    body = "\n".join(body_lines) + "\n\n"
+
+    # S'assurer que le return est présent
+    body = _ensure_return_statement(body)
+
+    return body
 
 
 def _sample_to_program(

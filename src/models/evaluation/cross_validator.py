@@ -95,6 +95,37 @@ class MultiModelCVResult:
         }
 
 
+@dataclass
+class WeightedMetricResult:
+    """
+    Résultat d'une évaluation multi-métrique pondérée.
+
+    Attributes:
+        scores: Scores par métrique {metric_name: mean_score}
+        weights: Poids par métrique {metric_name: weight}
+        weighted_score: Score pondéré final
+        metric_details: Détails par métrique {metric_name: CVResult}
+    """
+
+    scores: dict[str, float]
+    weights: dict[str, float]
+    weighted_score: float
+    metric_details: dict[str, CVResult]
+
+    def __repr__(self) -> str:
+        metrics_str = ", ".join(f"{m}={s:.4f}*{self.weights[m]}" for m, s in self.scores.items())
+        return f"WeightedMetricResult(weighted={self.weighted_score:.4f}, [{metrics_str}])"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convertit en dictionnaire."""
+        return {
+            "scores": self.scores,
+            "weights": self.weights,
+            "weighted_score": self.weighted_score,
+            "metric_details": {name: r.to_dict() for name, r in self.metric_details.items()},
+        }
+
+
 class CrossValidator:
     """
     Validation croisée unifiée pour tous les modèles.
@@ -339,3 +370,145 @@ class CrossValidator:
         result = cv_1fold.evaluate(model, X, y, metric=metric)
 
         return result.scores[0]  # Premier fold seulement
+
+    def evaluate_weighted_metrics(
+        self,
+        model: BaseModel,
+        X: pd.DataFrame | np.ndarray,
+        y: np.ndarray,
+        metrics_config: list[dict[str, Any]],
+    ) -> WeightedMetricResult:
+        """
+        Évalue un modèle sur plusieurs métriques avec agrégation pondérée.
+
+        Permet d'optimiser un compromis entre plusieurs objectifs,
+        par exemple : 60% recall + 30% precision + 10% f1.
+
+        Args:
+            model: Instance de BaseModel à évaluer
+            X: Features (DataFrame ou array)
+            y: Target
+            metrics_config: Liste de configurations de métriques
+                Format: [{"name": "recall", "weight": 0.6}, {"name": "precision", "weight": 0.3}]
+                La somme des poids doit être 1.0
+
+        Returns:
+            WeightedMetricResult avec score pondéré et détails par métrique
+
+        Example:
+            >>> config = [
+            ...     {"name": "recall", "weight": 0.5},
+            ...     {"name": "precision", "weight": 0.3},
+            ...     {"name": "f1", "weight": 0.2}
+            ... ]
+            >>> result = cv.evaluate_weighted_metrics(model, X, y, config)
+            >>> print(f"Score pondéré: {result.weighted_score:.4f}")
+        """
+        if not metrics_config:
+            raise ValueError("metrics_config ne peut pas être vide")
+
+        # Valider que les poids somment à 1.0 (avec tolérance)
+        total_weight = sum(m.get("weight", 0) for m in metrics_config)
+        if not 0.99 <= total_weight <= 1.01:
+            raise ValueError(f"La somme des poids doit être 1.0, mais vaut {total_weight:.2f}")
+
+        # Évaluer chaque métrique
+        metric_results: dict[str, CVResult] = {}
+        scores: dict[str, float] = {}
+        weights: dict[str, float] = {}
+
+        for metric_conf in metrics_config:
+            metric_name = metric_conf["name"]
+            weight = metric_conf.get("weight", 1.0 / len(metrics_config))
+
+            result = self.evaluate(model, X, y, metric=metric_name)
+            metric_results[metric_name] = result
+            scores[metric_name] = result.mean
+            weights[metric_name] = weight
+
+        # Calcul du score pondéré
+        # Pour les métriques où "plus grand = mieux" (accuracy, f1, etc.), on les utilise directement
+        # Pour les métriques où "plus petit = mieux" (rmse, logloss), il faudrait les normaliser
+        # Ici on suppose que toutes les métriques sont "plus grand = mieux"
+        weighted_score = sum(scores[m] * weights[m] for m in scores)
+
+        return WeightedMetricResult(
+            scores=scores,
+            weights=weights,
+            weighted_score=weighted_score,
+            metric_details=metric_results,
+        )
+
+    def evaluate_multi_model_weighted_metrics(
+        self,
+        models: list[BaseModel],
+        X: pd.DataFrame | np.ndarray,
+        y: np.ndarray,
+        metrics_config: list[dict[str, Any]],
+        model_aggregation: str = "mean",
+    ) -> dict[str, Any]:
+        """
+        Évalue plusieurs modèles sur plusieurs métriques pondérées.
+
+        Combine :
+        1. Multi-métrique pondérée (ex: 60% recall + 40% precision)
+        2. Multi-modèle (XGBoost, LightGBM, RF)
+
+        Args:
+            models: Liste d'instances BaseModel
+            X: Features
+            y: Target
+            metrics_config: Configuration des métriques avec poids
+            model_aggregation: Comment agréger les scores des modèles ('mean', 'min', 'max')
+
+        Returns:
+            Dictionnaire avec:
+            - 'weighted_scores': {model_name: weighted_score}
+            - 'aggregated_score': Score agrégé sur tous les modèles
+            - 'best_model': Meilleur modèle selon le score pondéré
+            - 'details': Détails complets par modèle
+
+        Example:
+            >>> models = [get_model("xgboost"), get_model("lightgbm")]
+            >>> config = [{"name": "recall", "weight": 0.6}, {"name": "precision", "weight": 0.4}]
+            >>> result = cv.evaluate_multi_model_weighted_metrics(models, X, y, config)
+            >>> print(f"Score agrégé: {result['aggregated_score']:.4f}")
+        """
+        if not models:
+            raise ValueError("La liste de modèles ne peut pas être vide")
+
+        results_per_model: dict[str, WeightedMetricResult] = {}
+        weighted_scores: dict[str, float] = {}
+
+        for model in models:
+            result = self.evaluate_weighted_metrics(model, X, y, metrics_config)
+            model_name = model.get_name()
+            results_per_model[model_name] = result
+            weighted_scores[model_name] = result.weighted_score
+
+        # Agrégation des scores des modèles
+        score_values = list(weighted_scores.values())
+        aggregation_fns = {
+            "mean": np.mean,
+            "min": np.min,
+            "max": np.max,
+            "median": np.median,
+        }
+
+        if model_aggregation not in aggregation_fns:
+            raise ValueError(
+                f"Agrégation inconnue: '{model_aggregation}'. "
+                f"Disponibles: {list(aggregation_fns.keys())}"
+            )
+
+        aggregated_score = float(aggregation_fns[model_aggregation](score_values))
+        best_model = max(weighted_scores.items(), key=lambda x: x[1])[0]
+
+        return {
+            "weighted_scores": weighted_scores,
+            "aggregated_score": aggregated_score,
+            "best_model": best_model,
+            "model_aggregation": model_aggregation,
+            "metrics_config": metrics_config,
+            "details": {name: r.to_dict() for name, r in results_per_model.items()},
+        }

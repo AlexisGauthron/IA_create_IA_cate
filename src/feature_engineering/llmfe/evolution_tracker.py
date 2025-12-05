@@ -346,7 +346,7 @@ class EvolutionTracker:
                 "worst_score": min(scores) if scores else None,
                 "mean_score": sum(scores) / len(scores) if scores else None,
                 "score_improvement": (self.best_score - scores[0])
-                if scores and len(scores) > 1
+                if scores and len(scores) > 1 and self.best_score is not None
                 else 0,
             },
             "feature_analysis": {

@@ -84,6 +84,8 @@ class LLMFERunner:
         eval_models: list[str] | None = None,
         eval_aggregation: str = "mean",
         eval_metric: str = "auto",
+        # NOUVEAU : Métriques pondérées (prioritaire sur eval_metric)
+        eval_metrics_config: list[dict] | None = None,
     ) -> dict[str, Any]:
         """
         Exécute LLMFE sur le dataset fourni.
@@ -107,28 +109,50 @@ class LLMFERunner:
             eval_config: Configuration d'évaluation complète (prioritaire)
             eval_models: Liste des modèles d'évaluation (ex: ['xgboost', 'lightgbm'])
             eval_aggregation: Stratégie d'agrégation ('mean', 'min', 'max')
-            eval_metric: Métrique d'évaluation ('auto', 'f1', 'accuracy', 'auc', 'rmse', etc.)
+            eval_metric: Métrique d'évaluation unique ('auto', 'f1', 'accuracy', 'auc', 'rmse', etc.)
                 - 'auto': f1 pour classification, rmse pour régression
                 - Classification: 'accuracy', 'f1', 'f1_macro', 'f1_micro', 'precision', 'recall', 'auc', 'logloss'
                 - Régression: 'rmse', 'mse', 'mae', 'r2', 'mape'
+            eval_metrics_config: Configuration multi-métrique pondérée (prioritaire sur eval_metric)
+                Format: [{"name": "recall", "weight": 0.5}, {"name": "precision", "weight": 0.5}]
+                La somme des poids doit être 1.0
+                Permet d'optimiser un compromis entre plusieurs métriques.
 
         Returns:
             Dictionnaire avec les résultats et chemins
 
         Example:
-            >>> # Évaluation legacy (XGBoost seul)
+            >>> # Évaluation legacy (XGBoost seul, métrique unique)
             >>> result = runner.run(df, target_col="target")
             >>>
-            >>> # Évaluation multi-modèle (recommandé)
+            >>> # Évaluation multi-modèle avec métrique unique
             >>> result = runner.run(
             ...     df, target_col="target",
             ...     eval_models=["xgboost", "lightgbm", "randomforest"],
             ...     eval_aggregation="mean"
             ... )
+            >>>
+            >>> # NOUVEAU : Évaluation avec métriques pondérées
+            >>> result = runner.run(
+            ...     df, target_col="target",
+            ...     eval_metrics_config=[
+            ...         {"name": "recall", "weight": 0.6},
+            ...         {"name": "precision", "weight": 0.3},
+            ...         {"name": "f1", "weight": 0.1}
+            ...     ],
+            ...     eval_models=["xgboost"]
+            ... )
         """
         # Construire la configuration d'évaluation
         if eval_config is None:
-            if eval_models is not None:
+            # NOUVEAU : Support des métriques pondérées
+            if eval_metrics_config is not None:
+                eval_config = EvaluationConfig(
+                    model_names=tuple(eval_models) if eval_models else ("xgboost",),
+                    aggregation=eval_aggregation,
+                    metrics_config=tuple(eval_metrics_config),  # Métriques pondérées
+                )
+            elif eval_models is not None:
                 eval_config = EvaluationConfig(
                     model_names=tuple(eval_models),
                     aggregation=eval_aggregation,
@@ -159,7 +183,14 @@ class LLMFERunner:
         spec_path = self.path_config.save_spec(spec_content)
         print(f"✅ Spec générée: {spec_path}")
         print(f"   Modèles d'évaluation: {eval_config.get_model_names()}")
-        print(f"   Métrique: {eval_config.metric}")
+        # Afficher les métriques (pondérées ou unique)
+        if eval_config.is_weighted_metrics():
+            metrics_str = ", ".join(
+                f"{m['name']}={m['weight']}" for m in eval_config.get_metrics_config()
+            )
+            print(f"   Métriques pondérées: [{metrics_str}]")
+        else:
+            print(f"   Métrique: {eval_config.metric}")
 
         # 4. Préparer les données
         X = df_train.drop(columns=[target_col])
@@ -238,7 +269,7 @@ class LLMFERunner:
 
         specification = self.path_config.read_spec()
 
-        pipeline.main(
+        pipeline_results = pipeline.main(
             specification=specification,
             inputs=dataset,
             config=config,
@@ -251,12 +282,19 @@ class LLMFERunner:
             target_column=target_col,
         )
 
-        # 8. Retourner les résultats
+        # 8. Retourner les résultats enrichis
         return {
             "path_config": self.path_config,
             "project_dir": str(self.path_config.project_dir),
             "results_dir": str(self.path_config.llmfe_results_dir),
             "samples_dir": str(self.path_config.llmfe_samples_dir),
+            # Métriques de pipeline pour le module de comparaison
+            "scores": pipeline_results.get("scores", []),
+            "n_features_per_iteration": pipeline_results.get("n_features_per_iteration", []),
+            "n_features_generated": pipeline_results.get("n_features_generated", 0),
+            "best_score": pipeline_results.get("best_score", 0.0),
+            "final_score": pipeline_results.get("final_score", 0.0),
+            "n_iterations": pipeline_results.get("n_iterations", 0),
         }
 
     def _print_config(self):
@@ -313,6 +351,36 @@ class LLMFERunner:
         # Convertir la liste en format Python pour la spec
         model_names_str = str(model_names)
 
+        # Générer le code d'évaluation selon le mode (mono vs multi-métrique)
+        if eval_config.is_weighted_metrics():
+            # Mode multi-métrique pondérée
+            metrics_config = eval_config.get_metrics_config()
+            metrics_config_str = str(metrics_config)
+            evaluation_code = f"""    # Multi-metric weighted evaluation using src/models/
+    from src.feature_engineering.llmfe.model_evaluator import evaluate_features_weighted
+    score = evaluate_features_weighted(
+        X=X_processed,
+        y=y,
+        is_regression=is_regression,
+        metrics_config={metrics_config_str},
+        model_names={model_names_str},
+        n_folds={n_folds},
+        model_aggregation="{aggregation}",
+    )"""
+        else:
+            # Mode mono-métrique (legacy)
+            evaluation_code = f"""    # Multi-model evaluation using src/models/
+    from src.feature_engineering.llmfe.model_evaluator import evaluate_features
+    score = evaluate_features(
+        X=X_processed,
+        y=y,
+        is_regression=is_regression,
+        model_names={model_names_str},
+        n_folds={n_folds},
+        metric="{metric}",
+        aggregation="{aggregation}",
+    )"""
+
         return f'''"""
 [PREFIX]
 
@@ -338,7 +406,6 @@ def evaluate(data: dict):
     Uses src/models/ for model-agnostic evaluation instead of hardcoded XGBoost.
     This helps avoid overfitting features to a single algorithm.
     """
-    from src.feature_engineering.llmfe.model_evaluator import evaluate_features
     from src.feature_engineering.llmfe.preprocessing import preprocess_datasets
     from sklearn import preprocessing
     import numpy as np
@@ -366,16 +433,7 @@ def evaluate(data: dict):
     # Preprocess features (handle NaN, inf, etc.)
     X_processed, _ = preprocess_datasets(X, X.copy(), None)
 
-    # Multi-model evaluation using src/models/
-    score = evaluate_features(
-        X=X_processed,
-        y=y,
-        is_regression=is_regression,
-        model_names={model_names_str},
-        n_folds={n_folds},
-        metric="{metric}",
-        aggregation="{aggregation}",
-    )
+{evaluation_code}
 
     return score, inputs, outputs
 

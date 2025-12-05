@@ -22,29 +22,48 @@ class EvaluationConfig:
     Permet de configurer quels modèles utiliser pour évaluer les features
     générées, au lieu d'utiliser uniquement XGBoost.
 
+    Supporte deux modes :
+    1. Métrique unique (legacy) : `metric='f1'`
+    2. Métriques pondérées (nouveau) : `metrics_config=[{"name": "recall", "weight": 0.6}, ...]`
+
     Args:
         model_names: Liste des modèles à utiliser pour l'évaluation.
             Options: 'xgboost', 'lightgbm', 'randomforest', 'decisiontree', 'logistic'
             Par défaut: ['xgboost'] (comportement legacy)
         n_folds: Nombre de folds pour la validation croisée
-        metric: Métrique d'évaluation ('auto', 'f1', 'accuracy', 'auc', 'rmse', etc.)
+        metric: Métrique d'évaluation unique ('auto', 'f1', 'accuracy', 'auc', 'rmse', etc.)
+        metrics_config: Configuration multi-métrique pondérée (prioritaire sur `metric`)
+            Format: [{"name": "recall", "weight": 0.5}, {"name": "precision", "weight": 0.5}]
+            La somme des poids doit être 1.0
         aggregation: Stratégie d'agrégation multi-modèle ('mean', 'min', 'max')
         use_multi_model: Si True, utilise plusieurs modèles (override model_names)
 
     Example:
-        >>> # Configuration legacy (XGBoost seul)
+        >>> # Configuration legacy (XGBoost seul, métrique unique)
         >>> eval_config = EvaluationConfig()
         >>>
-        >>> # Configuration multi-modèle recommandée
+        >>> # Configuration multi-modèle avec métrique unique
         >>> eval_config = EvaluationConfig(
         ...     model_names=['xgboost', 'lightgbm', 'randomforest'],
+        ...     metric='f1',
         ...     aggregation='mean'
+        ... )
+        >>>
+        >>> # NOUVEAU : Configuration avec métriques pondérées
+        >>> eval_config = EvaluationConfig(
+        ...     model_names=['xgboost'],
+        ...     metrics_config=[
+        ...         {"name": "recall", "weight": 0.6},
+        ...         {"name": "precision", "weight": 0.3},
+        ...         {"name": "f1", "weight": 0.1}
+        ...     ]
         ... )
     """
 
     model_names: tuple[str, ...] = ("xgboost",)
     n_folds: int = 4
     metric: str = "auto"
+    metrics_config: tuple[dict, ...] | None = None  # NOUVEAU : métriques pondérées
     aggregation: Literal["mean", "min", "max", "median"] = "mean"
     use_multi_model: bool = False
 
@@ -54,6 +73,16 @@ class EvaluationConfig:
             # Si multi-modèle activé mais liste par défaut, utiliser les 3 principaux
             return ["xgboost", "lightgbm", "randomforest"]
         return list(self.model_names)
+
+    def get_metrics_config(self) -> list[dict] | None:
+        """Retourne la configuration des métriques pondérées (ou None si mono-métrique)."""
+        if self.metrics_config:
+            return list(self.metrics_config)
+        return None
+
+    def is_weighted_metrics(self) -> bool:
+        """Retourne True si utilise des métriques pondérées."""
+        return self.metrics_config is not None and len(self.metrics_config) > 0
 
 
 # Presets de configuration d'évaluation
