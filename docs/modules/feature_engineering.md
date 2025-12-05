@@ -10,9 +10,8 @@ Le module **feature_engineering** est le **cœur transformationnel** du pipeline
 
 1. **LLMFE** : Feature Engineering guidé par LLM (génération itérative de code)
 2. **DFS** : Deep Feature Synthesis (agrégations structurelles)
-3. **Transforms** : Transformations réutilisables (catégorielles, numériques, texte)
-4. **Declarative** : Plans de FE déclarés par LLM (au lieu de code)
-5. **Hybrid** : Combinaison LLMFE + DFS
+3. **Hybrid** : Combinaison LLMFE + DFS
+4. **Declarative** : Parsing de plans de FE déclarés par LLM
 
 ---
 
@@ -42,24 +41,14 @@ src/feature_engineering/
 │   ├── selection.py                # FeatureSelector
 │   └── primitives.py               # Primitives featuretools
 │
-├── transforms/                     # Transformations réutilisables
-│   ├── registry.py                 # Registre des transformations
-│   ├── apply_plan.py               # Application de plans FE
-│   ├── categorical.py              # Encodages catégoriels
-│   ├── datetime.py                 # Features temporelles
-│   ├── numeric.py                  # Features numériques
-│   └── text.py                     # Transformations texte
-│
 ├── declarative/                    # FE déclaratif (plans)
 │   ├── parsing.py                  # Parse plans LLM
+│   ├── planner.py                  # Génération de plans
 │   └── prompt.py                   # Construction prompts
 │
-├── libs/                           # Wrappers bibliothèques
-│   ├── featuretools_wrapper.py     # Wrapper featuretools
-│   └── feature_engine_wrapper.py   # Transformers custom
-│
 └── hybrid/                         # LLMFE + DFS combinés
-    └── runner.py                   # HybridFeatureEngineer
+    ├── runner.py                   # HybridFeatureEngineer
+    └── config.py                   # Configuration hybrid
 ```
 
 ---
@@ -285,33 +274,6 @@ result = run_dfs(
 print(f"Features générées: {result.n_features_generated}")
 print(f"Score final: {result.final_score:.4f}")
 ```
-
----
-
-## Transforms : Transformations Réutilisables
-
-### Registry
-
-```python
-from src.feature_engineering.transforms.registry import get_all_transforms, register
-
-# Enregistrer une transformation custom
-@register("my_transform")
-def my_transform(df, **kwargs):
-    return df.assign(new_feature=df["a"] / df["b"])
-
-# Récupérer toutes les transformations
-transforms = get_all_transforms()
-```
-
-### Transformations Disponibles
-
-| Fichier | Transformations |
-|---------|-----------------|
-| `categorical.py` | Target encoding, frequency encoding, one-hot |
-| `numeric.py` | Scaling, binning, log-transform, interactions |
-| `datetime.py` | Year, month, day, weekday, hour, is_weekend |
-| `text.py` | TF-IDF, word count, char count |
 
 ---
 

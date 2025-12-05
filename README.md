@@ -382,8 +382,8 @@ LLM-FE est lui-même construit sur :
 | Document | Description |
 |----------|-------------|
 | [CLI Reference](docs/cli_reference.md) | Référence complète CLI |
-| [Testing](docs/TESTING.md) | Guide des tests |
-| [Architecture](docs/architecture.md) | Architecture du projet |
+| [Architecture](docs/architecture/OVERVIEW.md) | Architecture du projet |
+| [Modules](docs/modules/) | Documentation des modules |
 
 ---
 

@@ -146,7 +146,7 @@
 |-----------|-------------|
 | Frameworks AutoML | FLAML, AutoGluon, TPOT, H2O |
 | Modèles d'évaluation | XGBoost, LightGBM, CatBoost, RandomForest, sklearn |
-| Feature Engineering | FeatureTools (DFS), Feature-Engine |
+| Feature Engineering | LLMFE (LLM-based), FeatureTools (DFS) |
 
 ### LLM
 | Composant | Technologie |

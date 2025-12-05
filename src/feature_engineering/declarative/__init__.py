@@ -1,2 +1,0 @@
-# declarative
-"""Module declarative."""

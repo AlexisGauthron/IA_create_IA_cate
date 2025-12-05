@@ -6,10 +6,9 @@
 
 ## Vue d'Ensemble
 
-Le module **front** fournit **2 interfaces Streamlit** :
+Le module **front** fournit une **interface Streamlit** pour le pipeline ML complet :
 
 1. **pipeline_streamlit.py** : Pipeline ML complet (Analyse → FE → AutoML)
-2. **interface_streamlit.py** : Classification few-shot (LLM ou Embeddings)
 
 ---
 
@@ -18,9 +17,7 @@ Le module **front** fournit **2 interfaces Streamlit** :
 ```
 src/front/
 ├── pipeline_streamlit.py       # Pipeline ML complet (7 étapes)
-├── interface_streamlit.py      # App few-shot classification
 ├── upload_fichier.py           # Utilitaires upload CSV
-├── section_embedding.py        # Section embeddings/prototypes
 ├── ui_helper.py                # Helpers Streamlit
 ├── css.py                      # Thème CSS personnalisé
 ├── fe_progress_monitor.py      # Suivi progression LLMFE
@@ -135,35 +132,6 @@ st.session_state = {
     "eval_models": list[str],
     "eval_aggregation": str,
 }
-```
-
----
-
-## Few-Shot Classification (interface_streamlit.py)
-
-### Modes Disponibles
-
-| Mode | Description |
-|------|-------------|
-| **LLM (Ollama)** | Classification textuelle avec votes multi-modèles |
-| **Embeddings** | Classification par similarité cosinus avec prototypes |
-
-### Configuration LLM
-
-```python
-# Sidebar
-- URL Ollama
-- Modèle (qwen, llama, mistral)
-- Temperature, top_p, seed
-- Nombre de votes (self-consistency: 1-7)
-- Seuil "Autre"
-- Instructions métier optionnelles
-```
-
-### Lancement
-
-```bash
-streamlit run src/front/interface_streamlit.py
 ```
 
 ---
