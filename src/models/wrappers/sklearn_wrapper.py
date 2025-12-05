@@ -7,7 +7,7 @@ Ce module contient les wrappers pour les modèles sklearn classiques :
 - LogisticRegression / Ridge
 """
 
-from typing import Any
+from typing import Any, Union
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Ridge
@@ -55,7 +55,7 @@ class RandomForestModel(BaseModel):
             "max_features": ["sqrt", "log2", 0.5, 0.8],
         }
 
-    def create_model(self, **hp: Any) -> RandomForestClassifier | RandomForestRegressor:
+    def create_model(self, **hp: Any) -> Union[RandomForestClassifier, RandomForestRegressor]:
         """Crée une instance RandomForest."""
         clean_hp = {k: v for k, v in hp.items() if v is not None}
 
@@ -101,7 +101,7 @@ class DecisionTreeModel(BaseModel):
             else ["squared_error", "friedman_mse"],
         }
 
-    def create_model(self, **hp: Any) -> DecisionTreeClassifier | DecisionTreeRegressor:
+    def create_model(self, **hp: Any) -> Union[DecisionTreeClassifier, DecisionTreeRegressor]:
         """Crée une instance DecisionTree."""
         clean_hp = {k: v for k, v in hp.items() if v is not None}
 
@@ -158,7 +158,7 @@ class LogisticRegressionModel(BaseModel):
             "solver": ["lbfgs", "newton-cg"],
         }
 
-    def create_model(self, **hp: Any) -> LogisticRegression | Ridge:
+    def create_model(self, **hp: Any) -> Union[LogisticRegression, Ridge]:
         """Crée une instance LogisticRegression ou Ridge."""
         clean_hp = {k: v for k, v in hp.items() if v is not None}
 

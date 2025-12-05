@@ -10,7 +10,7 @@ Ce module contient les configurations pour LLMFE :
 from __future__ import annotations
 
 import dataclasses
-from typing import Literal
+from typing import Literal, Optional
 
 from src.feature_engineering.llmfe import evaluator, sampler
 
@@ -63,7 +63,7 @@ class EvaluationConfig:
     model_names: tuple[str, ...] = ("xgboost",)
     n_folds: int = 4
     metric: str = "auto"
-    metrics_config: tuple[dict, ...] | None = None  # NOUVEAU : métriques pondérées
+    metrics_config: Optional[tuple[dict, ...]] = None  # NOUVEAU : métriques pondérées
     aggregation: Literal["mean", "min", "max", "median"] = "mean"
     use_multi_model: bool = False
 
@@ -74,7 +74,7 @@ class EvaluationConfig:
             return ["xgboost", "lightgbm", "randomforest"]
         return list(self.model_names)
 
-    def get_metrics_config(self) -> list[dict] | None:
+    def get_metrics_config(self) -> Optional[list[dict]]:
         """Retourne la configuration des métriques pondérées (ou None si mono-métrique)."""
         if self.metrics_config:
             return list(self.metrics_config)

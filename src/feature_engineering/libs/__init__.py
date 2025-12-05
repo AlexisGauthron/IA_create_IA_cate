@@ -1,2 +1,0 @@
-# libs
-"""Module libs."""

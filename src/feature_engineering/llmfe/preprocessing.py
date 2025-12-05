@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,7 +27,7 @@ def create_mappings(df_train: pd.DataFrame) -> dict[str, dict[int, str]]:
 
 
 def convert_categorical_to_integer_f(
-    column: pd.Series, mapping: dict[int, str] | None = None
+    column: pd.Series, mapping: Optional[Dict[int, str]] = None
 ) -> pd.Series:
     """
     Converts a categorical column to integer values using the given mapping.
@@ -69,10 +70,10 @@ def preprocess_dataset(df: pd.DataFrame, mappings: dict[str, dict[int, str]]) ->
 
 def preprocess_datasets(
     df_train: pd.DataFrame,
-    df_test: pd.DataFrame | None,
+    df_test: Optional[pd.DataFrame],
     target_column: str,
-    return_mappings: bool | None = False,
-) -> tuple[pd.DataFrame, pd.DataFrame | None, dict[str, dict[int, str]] | None]:
+    return_mappings: Optional[bool] = False,
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], Optional[Dict[str, Dict[int, str]]]]:
     """
     Converts the categorical columns in the given training and test dataframes to integer values using mappings created from the training dataframe.
 

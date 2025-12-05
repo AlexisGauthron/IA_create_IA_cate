@@ -27,9 +27,9 @@ class TestFLAML:
 
     def test_import_flaml_wrapper(self):
         """Test l'import du wrapper FLAML."""
-        from src.automl.supervised.flaml_wrapper import autoMl_flaml
+        from src.automl.supervised.flaml_wrapper import FlamlWrapper
 
-        assert autoMl_flaml is not None
+        assert FlamlWrapper is not None
 
     def test_flaml_training(self):
         """Test l'entraînement FLAML sur breast_cancer."""
@@ -37,12 +37,12 @@ class TestFLAML:
 
         from sklearn.model_selection import train_test_split
 
-        from src.automl.supervised.flaml_wrapper import autoMl_flaml
+        from src.automl.supervised.flaml_wrapper import FlamlWrapper
         from src.core.io_utils import load_datasets_breast_cancer
 
-        Nom_Projet = "breast_cancer_test"
-        Nom_dossier = f"Modeles/python/{Nom_Projet}"
-        dossier = Path(Nom_dossier)
+        project_name = "breast_cancer_test"
+        output_dir = f"Modeles/python/{project_name}"
+        dossier = Path(output_dir)
         dossier.mkdir(parents=True, exist_ok=True)
 
         df = load_datasets_breast_cancer()
@@ -52,10 +52,10 @@ class TestFLAML:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        Flaml = autoMl_flaml(Nom_dossier, X_train, X_test, y_train, y_test)
-        Flaml.flaml(time_budget=30)
-        Flaml.predict_test()
-        Flaml.enregistrement_model()
+        wrapper = FlamlWrapper(output_dir, X_train, X_test, y_train, y_test)
+        wrapper.flaml(time_budget=30)
+        wrapper.predict_test()
+        wrapper.enregistrement_model()
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 Wrapper XGBoost avec interface BaseModel.
 """
 
-from typing import Any
+from typing import Any, Union
 
 import xgboost as xgb
 
@@ -69,7 +69,7 @@ class XGBoostModel(BaseModel):
             "reg_lambda": (0.0, 1.0),
         }
 
-    def create_model(self, **hp: Any) -> xgb.XGBClassifier | xgb.XGBRegressor:
+    def create_model(self, **hp: Any) -> Union[xgb.XGBClassifier, xgb.XGBRegressor]:
         """
         Crée une instance XGBoost.
 

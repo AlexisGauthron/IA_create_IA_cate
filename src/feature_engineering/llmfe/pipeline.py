@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 # from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from src.feature_engineering.llmfe import buffer, code_manipulation, evaluator, profile, sampler
 from src.feature_engineering.llmfe import config as config_lib
@@ -41,10 +41,10 @@ def main(
     inputs: Sequence[Any],
     config: config_lib.Config,
     meta_data: dict,
-    max_sample_nums: int | None,
+    max_sample_nums: Optional[int],
     class_config: config_lib.ClassConfig,
-    path_config: FeatureEngineeringPathConfig | None = None,
-    feature_insights: FeatureInsights | None = None,
+    path_config: Optional[FeatureEngineeringPathConfig] = None,
+    feature_insights: Optional[FeatureInsights] = None,
     feature_format: FeatureFormat = FeatureFormat.BASIC,
     **kwargs,
 ):

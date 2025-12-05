@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 import pandas as pd
 
@@ -34,21 +34,21 @@ class FeatureInsight:
     unique_ratio: float = 0.0
 
     # Stats numériques (si applicable)
-    min_val: float | None = None
-    max_val: float | None = None
-    mean: float | None = None
-    std: float | None = None
-    skewness: float | None = None
+    min_val: Optional[float] = None
+    max_val: Optional[float] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    skewness: Optional[float] = None
 
     # Stats catégorielles (si applicable)
     categories: list[str] = field(default_factory=list)
     top_categories: list[dict[str, Any]] = field(default_factory=list)
 
     # Corrélation avec la cible (calculée par src/analyse/correlation/)
-    correlation: float | None = None  # Pearson
-    correlation_spearman: float | None = None
-    mutual_info: float | None = None
-    combined_score: float | None = None  # Score global
+    correlation: Optional[float] = None  # Pearson
+    correlation_spearman: Optional[float] = None
+    mutual_info: Optional[float] = None
+    combined_score: Optional[float] = None  # Score global
 
     # Flags et hints (générés par src/analyse/)
     flags: list[str] = field(default_factory=list)  # ID_LIKE, HIGH_CARDINALITY, CONSTANT
@@ -56,7 +56,7 @@ class FeatureInsight:
     notes: list[str] = field(default_factory=list)
 
     # Description métier (si disponible via LLM)
-    description: str | None = None
+    description: Optional[str] = None
 
 
 class FeatureInsights:
@@ -70,8 +70,8 @@ class FeatureInsights:
     def __init__(
         self,
         features: dict[str, FeatureInsight],
-        target_name: str | None = None,
-        analyse_path: Path | None = None,
+        target_name: Optional[str] = None,
+        analyse_path: Optional[Path] = None,
     ):
         self.features = features
         self.target_name = target_name
@@ -139,8 +139,8 @@ class FeatureInsights:
     @classmethod
     def from_json_with_correlations(
         cls,
-        stats_json_path: str | Path,
-        correlations_json_path: str | Path | None = None,
+        stats_json_path: Union[str, Path],
+        correlations_json_path: Optional[Union[str, Path]] = None,
     ) -> FeatureInsights:
         """
         Charge les insights depuis le JSON stats + corrélations optionnelles.
@@ -261,7 +261,7 @@ class FeatureInsights:
         # Charger depuis le JSON généré
         return cls.from_json(json_path)
 
-    def get_feature(self, name: str) -> FeatureInsight | None:
+    def get_feature(self, name: str) -> Optional[FeatureInsight]:
         """Retourne l'insight pour une feature donnée."""
         return self.features.get(name)
 

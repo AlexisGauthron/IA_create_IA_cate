@@ -9,7 +9,7 @@ import profile
 import random
 import time
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -83,16 +83,16 @@ class ExperienceBuffer:
         template: code_manipulation.Program,
         function_to_evolve: str,
         meta_data: dict,
-        path_config: FeatureEngineeringPathConfig | None = None,
-        feature_insights: FeatureInsights | None = None,
+        path_config: Optional[FeatureEngineeringPathConfig] = None,
+        feature_insights: Optional[FeatureInsights] = None,
         feature_format: FeatureFormat = FeatureFormat.BASIC,
     ) -> None:
         self._config: config_lib.ExperienceBufferConfig = config
         self._template: code_manipulation.Program = template
         self._function_to_evolve: str = function_to_evolve
         self._meta_data: dict = meta_data
-        self._path_config: FeatureEngineeringPathConfig | None = path_config
-        self._feature_insights: FeatureInsights | None = feature_insights
+        self._path_config: Optional[FeatureEngineeringPathConfig] = path_config
+        self._feature_insights: Optional[FeatureInsights] = feature_insights
         self._feature_format: FeatureFormat = feature_format
 
         # Initialize empty islands.
@@ -112,10 +112,10 @@ class ExperienceBuffer:
                 )
             )
         self._best_score_per_island: list[float] = [-float("inf")] * config.num_islands
-        self._best_program_per_island: list[code_manipulation.Function | None] = [
+        self._best_program_per_island: list[Optional[code_manipulation.Function]] = [
             None
         ] * config.num_islands
-        self._best_scores_per_test_per_island: list[ScoresPerTest | None] = [
+        self._best_scores_per_test_per_island: list[Optional[ScoresPerTest]] = [
             None
         ] * config.num_islands
 
@@ -162,7 +162,7 @@ class ExperienceBuffer:
     def register_program(
         self,
         program: code_manipulation.Function,
-        island_id: int | None,
+        island_id: Optional[int],
         scores_per_test: ScoresPerTest,
         input_data: pd.DataFrame,
         output_data: pd.DataFrame,
@@ -223,8 +223,8 @@ class Island:
         meta_data: dict,
         cluster_sampling_temperature_init: float,
         cluster_sampling_temperature_period: int,
-        path_config: FeatureEngineeringPathConfig | None = None,
-        feature_insights: FeatureInsights | None = None,
+        path_config: Optional[FeatureEngineeringPathConfig] = None,
+        feature_insights: Optional[FeatureInsights] = None,
         feature_format: FeatureFormat = FeatureFormat.BASIC,
     ) -> None:
         self._template: code_manipulation.Program = template
@@ -233,8 +233,8 @@ class Island:
         self._meta_data: dict = meta_data
         self._cluster_sampling_temperature_init = cluster_sampling_temperature_init
         self._cluster_sampling_temperature_period = cluster_sampling_temperature_period
-        self._path_config: FeatureEngineeringPathConfig | None = path_config
-        self._feature_insights: FeatureInsights | None = feature_insights
+        self._path_config: Optional[FeatureEngineeringPathConfig] = path_config
+        self._feature_insights: Optional[FeatureInsights] = feature_insights
         self._feature_format: FeatureFormat = feature_format
 
         self._clusters: dict[Signature, Cluster] = {}
@@ -256,8 +256,12 @@ class Island:
             self._clusters[signature].register_program(program, data_input, data_output)
         self._num_programs += 1
 
-    def get_prompt(self) -> tuple[str, int]:
+    def get_prompt(self) -> tuple[str, int, Optional[pd.DataFrame], Optional[list]]:
         """Constructs a prompt containing equation program skeletons from this island."""
+        # Si aucun cluster n'existe encore, retourner un prompt initial
+        if not self._clusters:
+            return self._generate_initial_prompt(), 1, None, None
+
         signatures = list(self._clusters.keys())
         cluster_scores = np.array([self._clusters[signature].score for signature in signatures])
 
@@ -265,6 +269,8 @@ class Island:
         temperature = self._cluster_sampling_temperature_init * (
             1 - (self._num_programs % period) / period
         )
+        # Protection contre température nulle
+        temperature = max(temperature, 1e-6)
         probabilities = _softmax(cluster_scores, temperature)
 
         functions_per_prompt = min(len(self._clusters), self._functions_per_prompt)
@@ -462,6 +468,61 @@ class Island:
                     feature_name_list.append(f"- {cname}: {desc} (feature)")
 
         return "\n".join(feature_name_list)
+
+    def _generate_initial_prompt(self) -> str:
+        """
+        Génère un prompt initial quand aucun cluster n'existe encore.
+        Utilise le template de base avec la fonction initiale à faire évoluer.
+        """
+        # Créer une copie du template
+        template = copy.deepcopy(self._template)
+
+        # Trouver la fonction à faire évoluer dans le template
+        initial_function = None
+        for func in template.functions:
+            if func.name == self._function_to_evolve:
+                initial_function = func
+                break
+
+        if initial_function is None:
+            # Fallback : retourner le template tel quel
+            return str(template)
+
+        # Créer une version initiale (_v0) et un header pour _v1
+        v0_function = copy.deepcopy(initial_function)
+        v0_function.name = f"{self._function_to_evolve}_v0"
+
+        v1_header = dataclasses.replace(
+            initial_function,
+            name=f"{self._function_to_evolve}_v1",
+            body="",
+            docstring=f"Improved version of `{self._function_to_evolve}_v0`. Think and suggest new features.",
+        )
+
+        versioned_functions = [v0_function, v1_header]
+        prompt = dataclasses.replace(template, functions=versioned_functions)
+
+        new_prompt = str(prompt)
+
+        # Charger les prompts (operations par défaut pour le premier)
+        prompt_type = "operations"
+        if self._path_config is not None:
+            try:
+                prefix = self._path_config.read_prompt(prompt_type, "head")
+                suffix = self._path_config.read_prompt(prompt_type, "tail")
+            except FileNotFoundError:
+                prefix, suffix = self._load_prompts_fallback(prompt_type)
+        else:
+            prefix, suffix = self._load_prompts_fallback(prompt_type)
+
+        new_prompt = new_prompt.replace("[PREFIX]", prefix).replace("[SUFFIX]", suffix)
+        # Pour le prompt initial, pas d'exemples ni de features détaillées
+        new_prompt = new_prompt.replace("[EXAMPLES]", "No examples available yet.\n")
+        new_prompt = new_prompt.replace(
+            "[FEATURES]", "Features will be discovered during execution.\n"
+        )
+
+        return new_prompt
 
 
 class Cluster:

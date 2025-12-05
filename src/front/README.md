@@ -1,15 +1,14 @@
 # Module Front
 
-Interfaces Streamlit : Pipeline ML complet + Classification few-shot.
+Interface Streamlit pour le Pipeline ML complet.
 
 📚 **Documentation complète** : [docs/modules/front.md](../../docs/modules/front.md)
 
-## Interfaces
+## Interface
 
 | Fichier | Description | Commande |
 |---------|-------------|----------|
 | `pipeline_streamlit.py` | Pipeline ML complet (7 étapes) | `streamlit run src/front/pipeline_streamlit.py` |
-| `interface_streamlit.py` | Classification few-shot | `streamlit run src/front/interface_streamlit.py` |
 
 ## Pipeline ML (7 Étapes)
 
@@ -47,7 +46,4 @@ conda activate Ia_create_ia
 
 # Pipeline ML complet
 streamlit run src/front/pipeline_streamlit.py
-
-# Few-shot classification
-streamlit run src/front/interface_streamlit.py
 ```

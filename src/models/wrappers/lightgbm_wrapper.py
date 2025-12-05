@@ -2,7 +2,7 @@
 Wrapper LightGBM avec interface BaseModel.
 """
 
-from typing import Any
+from typing import Any, Union
 
 import lightgbm as lgb
 
@@ -67,7 +67,7 @@ class LightGBMModel(BaseModel):
             "reg_lambda": (0.0, 1.0),
         }
 
-    def create_model(self, **hp: Any) -> lgb.LGBMClassifier | lgb.LGBMRegressor:
+    def create_model(self, **hp: Any) -> Union[lgb.LGBMClassifier, lgb.LGBMRegressor]:
         """
         Crée une instance LightGBM.
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os.path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 import pandas as pd
@@ -22,12 +22,12 @@ if TYPE_CHECKING:
 class Profiler:
     def __init__(
         self,
-        log_dir: str | None = None,
-        pkl_dir: str | None = None,
-        max_log_nums: int | None = None,
-        path_config: FeatureEngineeringPathConfig | None = None,
-        original_features: list[str] | None = None,
-        target_column: str | None = None,
+        log_dir: Optional[str] = None,
+        pkl_dir: Optional[str] = None,
+        max_log_nums: Optional[int] = None,
+        path_config: Optional[FeatureEngineeringPathConfig] = None,
+        original_features: Optional[list[str]] = None,
+        target_column: Optional[str] = None,
     ):
         """
         Args:
@@ -361,7 +361,9 @@ class Profiler:
             Liste des scores de chaque itération valide
         """
         scores = []
-        for sample_order in sorted(self._all_sampled_functions.keys()):
+        # Filtrer les clés None avant de trier
+        valid_keys = [k for k in self._all_sampled_functions.keys() if k is not None]
+        for sample_order in sorted(valid_keys):
             func = self._all_sampled_functions[sample_order]
             if func.score is not None:
                 scores.append(func.score)
@@ -375,7 +377,9 @@ class Profiler:
             Liste du nombre de features par itération
         """
         counts = []
-        for sample_order in sorted(self._all_sampled_functions.keys()):
+        # Filtrer les clés None avant de trier
+        valid_keys = [k for k in self._all_sampled_functions.keys() if k is not None]
+        for sample_order in sorted(valid_keys):
             func = self._all_sampled_functions[sample_order]
             if func.score is not None:
                 # Compter les lignes de code comme proxy du nombre de features
@@ -414,7 +418,7 @@ class Profiler:
         """
         return self._cur_best_program_score if self._cur_best_program_score > -99999999 else 0.0
 
-    def get_convergence_iteration(self) -> int | None:
+    def get_convergence_iteration(self) -> Optional[int]:
         """
         Retourne l'itération où le meilleur score a été atteint.
 

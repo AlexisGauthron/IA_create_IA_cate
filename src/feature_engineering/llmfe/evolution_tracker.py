@@ -11,7 +11,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 
 @dataclass
@@ -32,7 +32,7 @@ class SampleEvolution:
     """Évolution d'un sample (une itération LLM)."""
 
     sample_order: int
-    score: float | None
+    score: Optional[float]
     score_delta: float  # Différence avec le meilleur score précédent
     is_best: bool
 
@@ -50,7 +50,7 @@ class SampleEvolution:
     features_transformed: list[FeatureInfo] = field(default_factory=list)
 
     # Erreur éventuelle
-    error: str | None = None
+    error: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -88,9 +88,9 @@ class EvolutionTracker:
 
     def __init__(
         self,
-        output_dir: str | Path,
-        original_features: list[str] | None = None,
-        target_column: str | None = None,
+        output_dir: Union[str, Path],
+        original_features: Optional[list[str]] = None,
+        target_column: Optional[str] = None,
     ):
         """
         Args:
@@ -106,8 +106,8 @@ class EvolutionTracker:
 
         # Historique
         self.samples: list[SampleEvolution] = []
-        self.best_score: float | None = None
-        self.best_sample_order: int | None = None
+        self.best_score: Optional[float] = None
+        self.best_sample_order: Optional[int] = None
 
         # Métriques globales
         self.start_time = datetime.now()
@@ -120,11 +120,11 @@ class EvolutionTracker:
     def record_sample(
         self,
         sample_order: int,
-        score: float | None,
+        score: Optional[float],
         function_code: str,
         sample_time: float = 0.0,
         evaluate_time: float = 0.0,
-        error: str | None = None,
+        error: Optional[str] = None,
     ) -> SampleEvolution:
         """
         Enregistre un nouveau sample évalué.

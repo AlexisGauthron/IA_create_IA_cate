@@ -35,7 +35,7 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -50,7 +50,7 @@ def evaluate_features(
     X: pd.DataFrame,
     y: np.ndarray,
     is_regression: bool = False,
-    model_names: list[str] | None = None,
+    model_names: Optional[list[str]] = None,
     n_folds: int = 4,
     metric: str = "auto",
     aggregation: str = "mean",
@@ -117,7 +117,7 @@ def evaluate_features_detailed(
     X: pd.DataFrame,
     y: np.ndarray,
     is_regression: bool = False,
-    model_names: list[str] | None = None,
+    model_names: Optional[list[str]] = None,
     n_folds: int = 4,
     metric: str = "auto",
     random_state: int = 42,
@@ -242,8 +242,8 @@ def evaluate_features_weighted(
     X: pd.DataFrame,
     y: np.ndarray,
     is_regression: bool = False,
-    metrics_config: list[dict[str, Any]] | None = None,
-    model_names: list[str] | None = None,
+    metrics_config: Optional[list[dict[str, Any]]] = None,
+    model_names: Optional[list[str]] = None,
     n_folds: int = 4,
     model_aggregation: str = "mean",
     random_state: int = 42,
@@ -326,8 +326,8 @@ def evaluate_features_weighted_detailed(
     X: pd.DataFrame,
     y: np.ndarray,
     is_regression: bool = False,
-    metrics_config: list[dict[str, Any]] | None = None,
-    model_names: list[str] | None = None,
+    metrics_config: Optional[list[dict[str, Any]]] = None,
+    model_names: Optional[list[str]] = None,
     n_folds: int = 4,
     random_state: int = 42,
 ) -> dict[str, Any]:

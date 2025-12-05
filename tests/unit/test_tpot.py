@@ -27,9 +27,9 @@ class TestTPOT:
 
     def test_import_tpot_wrapper(self):
         """Test l'import du wrapper TPOT."""
-        from src.automl.supervised.tpot_wrapper import autoMl_tpot
+        from src.automl.supervised.tpot_wrapper import TPOTWrapper
 
-        assert autoMl_tpot is not None
+        assert TPOTWrapper is not None
 
     def test_tpot_training(self):
         """Test l'entraînement TPOT sur breast_cancer."""
@@ -37,12 +37,12 @@ class TestTPOT:
 
         from sklearn.model_selection import train_test_split
 
-        from src.automl.supervised.tpot_wrapper import autoMl_tpot
+        from src.automl.supervised.tpot_wrapper import TPOTWrapper
         from src.core.io_utils import load_datasets_breast_cancer
 
-        Nom_Projet = "breast_cancer_test"
-        Nom_dossier = f"Modeles/python/{Nom_Projet}"
-        dossier = Path(Nom_dossier)
+        project_name = "breast_cancer_test"
+        output_dir = f"Modeles/python/{project_name}"
+        dossier = Path(output_dir)
         dossier.mkdir(parents=True, exist_ok=True)
 
         df = load_datasets_breast_cancer()
@@ -52,10 +52,10 @@ class TestTPOT:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        Tpot = autoMl_tpot(Nom_dossier, X_train, X_test, y_train, y_test)
-        Tpot.tpot1()
-        Tpot.predict_test()
-        Tpot.enregistrement_model()
+        wrapper = TPOTWrapper(output_dir, X_train, X_test, y_train, y_test)
+        wrapper.tpot1()
+        wrapper.predict_test()
+        wrapper.enregistrement_model()
 
 
 if __name__ == "__main__":

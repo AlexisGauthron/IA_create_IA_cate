@@ -10,7 +10,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 
 @dataclass
@@ -37,7 +37,7 @@ class LLMFEPathConfig:
     module_root: Path = field(default_factory=lambda: Path(__file__).parent.parent)
 
     # Run ID optionnel pour différencier plusieurs exécutions
-    run_id: str | None = None
+    run_id: Optional[str] = None
 
     # Chemins calculés (initialisés dans __post_init__)
     _initialized: bool = field(default=False, repr=False)
@@ -179,7 +179,7 @@ class LLMFEPathConfig:
         """Retourne le chemin d'un fichier sample."""
         return self.samples_dir / f"sample_{sample_order:04d}.json"
 
-    def write_sample(self, sample_order: int, function_str: str, score: float | None) -> Path:
+    def write_sample(self, sample_order: int, function_str: str, score: Optional[float]) -> Path:
         """
         Écrit un sample JSON.
 
@@ -303,7 +303,7 @@ class LLMFEPathConfig:
             run_id=data.get("run_id"),
         )
 
-    def get_latest_run(self) -> Path | None:
+    def get_latest_run(self) -> Optional[Path]:
         """Retourne le dossier du dernier run."""
         runs_dir = self.project_dir / "runs"
         if not runs_dir.exists():

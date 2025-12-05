@@ -7,6 +7,7 @@ Supporte 3 formats : basic, tags, hierarchical.
 from __future__ import annotations
 
 from enum import Enum
+from typing import Optional
 
 import pandas as pd
 
@@ -273,8 +274,8 @@ def format_features_for_prompt(
     df: pd.DataFrame,
     target_col: str,
     format_type: FeatureFormat = FeatureFormat.BASIC,
-    insights: FeatureInsights | None = None,
-    meta_data: dict | None = None,
+    insights: Optional[FeatureInsights] = None,
+    meta_data: Optional[dict] = None,
 ) -> str:
     """
     Fonction utilitaire pour formater les features pour un prompt.

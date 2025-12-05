@@ -14,7 +14,7 @@ Example:
     >>> cv_score = cross_val_score(model, X, y, scoring=scorer)
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 from sklearn.metrics import (
@@ -250,7 +250,7 @@ def is_proba_metric(name: str) -> bool:
 def compute_all_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    y_proba: np.ndarray | None = None,
+    y_proba: Optional[np.ndarray] = None,
     is_regression: bool = False,
 ) -> dict[str, float]:
     """

@@ -11,7 +11,7 @@ Example:
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass
@@ -33,7 +33,7 @@ class ModelConfig:
     n_folds: int = 5
     random_state: int = 42
     n_jobs: int = -1
-    timeout_per_model: int | None = None
+    timeout_per_model: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convertit en dictionnaire."""

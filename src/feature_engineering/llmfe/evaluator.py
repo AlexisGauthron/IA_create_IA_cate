@@ -8,7 +8,7 @@ import profile
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -20,7 +20,7 @@ class _FunctionLineVisitor(ast.NodeVisitor):
 
     def __init__(self, target_function_name: str) -> None:
         self._target_function_name: str = target_function_name
-        self._function_end_line: int | None = None
+        self._function_end_line: Optional[int] = None
 
     def visit_FunctionDef(self, node: Any) -> None:
         """Collect the end line number of the target function."""
@@ -127,7 +127,7 @@ def _trim_function_body(generated_code: str) -> str:
 
 def _sample_to_program(
     generated_code: str,
-    version_generated: int | None,
+    version_generated: Optional[int],
     template: code_manipulation.Program,
     function_to_evolve: str,
 ) -> tuple[code_manipulation.Function, str]:
@@ -304,10 +304,10 @@ class Evaluator:
     def analyse(
         self,
         sample: str,
-        island_id: int | None,
-        data_input: pd.DataFrame | None,
-        data_output: pd.DataFrame | None,
-        version_generated: int | None,
+        island_id: Optional[int],
+        data_input: Optional[pd.DataFrame],
+        data_output: Optional[pd.DataFrame],
+        version_generated: Optional[int],
         **kwargs,
     ) -> None:
         """Compile the hypothesis sample into a program and executes it on test inputs."""

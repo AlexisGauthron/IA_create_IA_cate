@@ -8,6 +8,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Sequence
+from typing import Optional
 
 import numpy as np
 import requests
@@ -42,7 +43,7 @@ class Sampler:
         samples_per_prompt: int,
         meta_data: dict,
         config: config_lib.Config,
-        max_sample_nums: int | None = None,
+        max_sample_nums: Optional[int] = None,
         llm_class: type[LLM] = LLM,
     ):
         self._samples_per_prompt = samples_per_prompt

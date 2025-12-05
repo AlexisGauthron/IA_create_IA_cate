@@ -27,9 +27,9 @@ class TestAutoGluon:
 
     def test_import_autogluon_wrapper(self):
         """Test l'import du wrapper AutoGluon."""
-        from src.automl.supervised.autogluon_wrapper import autoMl_autogluon
+        from src.automl.supervised.autogluon_wrapper import AutoGluonWrapper
 
-        assert autoMl_autogluon is not None
+        assert AutoGluonWrapper is not None
 
     def test_autogluon_training(self):
         """Test l'entraînement AutoGluon sur breast_cancer."""
@@ -37,12 +37,12 @@ class TestAutoGluon:
 
         from sklearn.model_selection import train_test_split
 
-        from src.automl.supervised.autogluon_wrapper import autoMl_autogluon
+        from src.automl.supervised.autogluon_wrapper import AutoGluonWrapper
         from src.core.io_utils import load_datasets_breast_cancer
 
-        Nom_Projet = "breast_cancer_test"
-        Nom_dossier = f"Modeles/python/{Nom_Projet}"
-        dossier = Path(Nom_dossier)
+        project_name = "breast_cancer_test"
+        output_dir = f"Modeles/python/{project_name}"
+        dossier = Path(output_dir)
         dossier.mkdir(parents=True, exist_ok=True)
 
         df = load_datasets_breast_cancer()
@@ -52,9 +52,9 @@ class TestAutoGluon:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        Autogluon = autoMl_autogluon(Nom_dossier, X_train, X_test, y_train, y_test)
-        Autogluon.autogluon(time_budget=30)
-        Autogluon.predict_test()
+        wrapper = AutoGluonWrapper(output_dir, X_train, X_test, y_train, y_test)
+        wrapper.autogluon(time_budget=30)
+        wrapper.predict_test()
 
 
 if __name__ == "__main__":

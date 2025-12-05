@@ -15,7 +15,7 @@ Example:
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -164,7 +164,7 @@ class CrossValidator:
         self.shuffle = shuffle
         self.random_state = random_state
 
-    def _get_kfold(self, is_regression: bool) -> KFold | StratifiedKFold:
+    def _get_kfold(self, is_regression: bool) -> Union[KFold, StratifiedKFold]:
         """
         Retourne le splitter approprié.
 
@@ -192,7 +192,7 @@ class CrossValidator:
     def evaluate(
         self,
         model: BaseModel,
-        X: pd.DataFrame | np.ndarray,
+        X: Union[pd.DataFrame, np.ndarray],
         y: np.ndarray,
         metric: str = "auto",
     ) -> CVResult:
@@ -264,7 +264,7 @@ class CrossValidator:
     def evaluate_multi_model(
         self,
         models: list[BaseModel],
-        X: pd.DataFrame | np.ndarray,
+        X: Union[pd.DataFrame, np.ndarray],
         y: np.ndarray,
         metric: str = "auto",
         aggregation: str = "mean",
@@ -332,10 +332,10 @@ class CrossValidator:
     def quick_evaluate(
         self,
         model: BaseModel,
-        X: pd.DataFrame | np.ndarray,
+        X: Union[pd.DataFrame, np.ndarray],
         y: np.ndarray,
         metric: str = "auto",
-        sample_size: int | None = None,
+        sample_size: Optional[int] = None,
     ) -> float:
         """
         Évaluation rapide avec un seul fold ou échantillon.
@@ -374,7 +374,7 @@ class CrossValidator:
     def evaluate_weighted_metrics(
         self,
         model: BaseModel,
-        X: pd.DataFrame | np.ndarray,
+        X: Union[pd.DataFrame, np.ndarray],
         y: np.ndarray,
         metrics_config: list[dict[str, Any]],
     ) -> WeightedMetricResult:
@@ -442,7 +442,7 @@ class CrossValidator:
     def evaluate_multi_model_weighted_metrics(
         self,
         models: list[BaseModel],
-        X: pd.DataFrame | np.ndarray,
+        X: Union[pd.DataFrame, np.ndarray],
         y: np.ndarray,
         metrics_config: list[dict[str, Any]],
         model_aggregation: str = "mean",

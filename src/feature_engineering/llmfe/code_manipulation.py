@@ -13,6 +13,7 @@ import dataclasses
 import io
 import tokenize
 from collections.abc import Iterator, MutableSet, Sequence
+from typing import Optional
 
 import pandas as pd
 from absl import logging
@@ -20,18 +21,18 @@ from absl import logging
 
 @dataclasses.dataclass
 class Function:
-    "" "A parsed Python function. " ""
+    """A parsed Python function."""
 
     name: str
     args: str
     body: str
-    return_type: str | None = None
-    docstring: str | None = None
-    score: int | None = None
-    global_sample_nums: int | None = None
-    sample_time: float | None = None
-    evaluate_time: float | None = None
-    data_input: pd.DataFrame | None = None
+    return_type: Optional[str] = None
+    docstring: Optional[str] = None
+    score: Optional[int] = None
+    global_sample_nums: Optional[int] = None
+    sample_time: Optional[float] = None
+    evaluate_time: Optional[float] = None
+    data_input: Optional[pd.DataFrame] = None
 
     def __str__(self) -> str:
         return_type = f" -> {self.return_type}" if self.return_type else ""
@@ -96,7 +97,7 @@ class ProgramVisitor(ast.NodeVisitor):
         self._codelines: list[str] = sourcecode.splitlines()
         self._preface: str = ""
         self._functions: list[Function] = []
-        self._current_function: str | None = None
+        self._current_function: Optional[str] = None
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Collect all information about the function being parsed."""

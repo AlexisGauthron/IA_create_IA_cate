@@ -10,7 +10,7 @@ Ce module fournit une interface simple pour exécuter LLMFE avec :
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -42,8 +42,8 @@ class LLMFERunner:
     def __init__(
         self,
         project_name: str,
-        output_root: str | None = None,
-        path_config: FeatureEngineeringPathConfig | None = None,
+        output_root: Optional[str] = None,
+        path_config: Optional[FeatureEngineeringPathConfig] = None,
     ):
         """
         Initialise le runner LLMFE.
@@ -68,24 +68,24 @@ class LLMFERunner:
         target_col: str,
         is_regression: bool = False,
         max_samples: int = 20,
-        task_description: str | None = None,
-        meta_data: dict[str, str] | None = None,
+        task_description: Optional[str] = None,
+        meta_data: Optional[dict[str, str]] = None,
         use_api: bool = True,
         api_model: str = "gpt-4",
         num_samplers: int = 1,
         num_evaluators: int = 1,
         samples_per_prompt: int = 3,
         evaluate_timeout_seconds: int = 30,
-        feature_insights: FeatureInsights | None = None,
+        feature_insights: Optional[FeatureInsights] = None,
         feature_format: FeatureFormat = FeatureFormat.BASIC,
-        analyse_path: str | None = None,
+        analyse_path: Optional[str] = None,
         # NOUVEAU : Options d'évaluation multi-modèle
-        eval_config: EvaluationConfig | None = None,
-        eval_models: list[str] | None = None,
+        eval_config: Optional[EvaluationConfig] = None,
+        eval_models: Optional[list[str]] = None,
         eval_aggregation: str = "mean",
         eval_metric: str = "auto",
         # NOUVEAU : Métriques pondérées (prioritaire sur eval_metric)
-        eval_metrics_config: list[dict] | None = None,
+        eval_metrics_config: Optional[list[dict]] = None,
     ) -> dict[str, Any]:
         """
         Exécute LLMFE sur le dataset fourni.
@@ -323,7 +323,7 @@ class LLMFERunner:
         self,
         task_description: str,
         is_regression: bool,
-        eval_config: EvaluationConfig | None = None,
+        eval_config: Optional[EvaluationConfig] = None,
     ) -> str:
         """
         Génère une spec dynamiquement selon le type de problème.
@@ -458,8 +458,8 @@ def run_llmfe(
     target_col: str,
     is_regression: bool = False,
     max_samples: int = 20,
-    output_root: str | None = None,
-    eval_models: list[str] | None = None,
+    output_root: Optional[str] = None,
+    eval_models: Optional[list[str]] = None,
     eval_aggregation: str = "mean",
     eval_metric: str = "auto",
     **kwargs,

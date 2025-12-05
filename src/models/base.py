@@ -7,7 +7,7 @@ le pipeline (LLMFE, CASH, screening, HPO).
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -175,7 +175,7 @@ class BaseModel(ABC):
             **self.params,
         )
 
-    def get_feature_importance(self) -> np.ndarray | None:
+    def get_feature_importance(self) -> Optional[np.ndarray]:
         """
         Retourne l'importance des features si disponible.
 
